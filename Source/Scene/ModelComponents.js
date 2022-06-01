@@ -543,6 +543,46 @@ function MorphTarget() {
 }
 
 /**
+ * Properties from <code>EXT_primitive_voxels</code>
+ *
+ * @alias ModelComponents.Voxel
+ * @constructor
+ *
+ * @private
+ */
+function Voxel() {
+  /**
+   * @type {Cartesian3}
+   * @private
+   */
+  this.minBounds = undefined;
+
+  /**
+   * @type {Cartesian3}
+   * @private
+   */
+  this.maxBounds = undefined;
+
+  /**
+   * @type {Cartesian3}
+   * @private
+   */
+  this.dimensions = undefined;
+
+  /**
+   * @type {Cartesian3}
+   * @private
+   */
+  this.paddingBefore = undefined;
+
+  /**
+   * @type {Cartesian3}
+   * @private
+   */
+  this.paddingAfter = undefined;
+}
+
+/**
  * Geometry to be rendered with a material.
  *
  * @alias ModelComponents.Primitive
@@ -617,6 +657,13 @@ function Primitive() {
    * @private
    */
   this.propertyAttributeIds = [];
+
+  /**
+   * Properties from <code>EXT_primitive_voxels</code>.
+   * @type {ModelComponents.Voxel}
+   * @private
+   */
+  this.voxel = undefined;
 }
 
 /**
@@ -1341,6 +1388,7 @@ function Material() {
 Material.DEFAULT_EMISSIVE_FACTOR = Cartesian3.ZERO;
 
 ModelComponents.Quantization = Quantization;
+ModelComponents.Voxel = Voxel;
 ModelComponents.Attribute = Attribute;
 ModelComponents.Indices = Indices;
 ModelComponents.FeatureIdAttribute = FeatureIdAttribute;
