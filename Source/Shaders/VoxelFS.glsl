@@ -1260,7 +1260,7 @@ vec3 convertUvToShapeUvSpace(in vec3 positionUv) {
     
     // Compute radius
     #if defined(CYLINDER_HAS_SHAPE_BOUNDS_RADIUS_FLAT) || defined(CYLINDER_HAS_RENDER_BOUNDS_RADIUS_FLAT)
-        float radius = 1.0;
+        float radius = length(positionLocal.xy); // [0,1]
     #else
         float radius = length(positionLocal.xy); // [0,1]
         #if defined(CYLINDER_HAS_SHAPE_BOUNDS_RADIUS)
@@ -1270,7 +1270,7 @@ vec3 convertUvToShapeUvSpace(in vec3 positionUv) {
     
     // Compute height
     #if defined(CYLINDER_HAS_SHAPE_BOUNDS_HEIGHT_FLAT) || defined(CYLINDER_HAS_RENDER_BOUNDS_HEIGHT_FLAT)
-        float height = 1.0;
+        float height = positionUv.z; // [0,1]
     #else
         float height = positionUv.z; // [0,1]
         #if defined(CYLINDER_HAS_SHAPE_BOUNDS_HEIGHT)
@@ -1659,7 +1659,15 @@ void traverseOctreeFromExisting(in vec3 positionUv, inout TraversalData traversa
 
     if (insideTile) {
         for (int i = 0; i < SAMPLE_COUNT; i++) {
-            sampleDatas[i].tileUv = traversalData.positionUvLocal;
+            if (sampleDatas[i].usingParentMegatextureIndex) {
+                ivec4 parentOctreeCoords;
+                parentOctreeCoords.xyz = traversalData.octreeCoords.xyz / ivec3(2);
+                parentOctreeCoords.w = traversalData.octreeCoords.w - 1;
+                float parentDimAtLevel = pow(2.0, float(parentOctreeCoords.w));
+                sampleDatas[i].tileUv = traversalData.positionUvShapeSpace * parentDimAtLevel - vec3(parentOctreeCoords.xyz);
+            } else {
+                sampleDatas[i].tileUv = traversalData.positionUvLocal;
+            }
         }
     } else {
         // Go up tree
