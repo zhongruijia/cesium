@@ -31,29 +31,31 @@ import ResourceLoader from "./ResourceLoader.js";
 import SupportedImageFormats from "./SupportedImageFormats.js";
 import VertexAttributeSemantic from "./VertexAttributeSemantic.js";
 
-const Attribute = ModelComponents.Attribute;
-const Indices = ModelComponents.Indices;
-const FeatureIdAttribute = ModelComponents.FeatureIdAttribute;
-const FeatureIdTexture = ModelComponents.FeatureIdTexture;
-const FeatureIdImplicitRange = ModelComponents.FeatureIdImplicitRange;
-const MorphTarget = ModelComponents.MorphTarget;
-const Primitive = ModelComponents.Primitive;
-const Instances = ModelComponents.Instances;
-const Skin = ModelComponents.Skin;
-const Node = ModelComponents.Node;
-const AnimatedPropertyType = ModelComponents.AnimatedPropertyType;
-const AnimationSampler = ModelComponents.AnimationSampler;
-const AnimationTarget = ModelComponents.AnimationTarget;
-const AnimationChannel = ModelComponents.AnimationChannel;
-const Animation = ModelComponents.Animation;
-const ArticulationStage = ModelComponents.ArticulationStage;
-const Articulation = ModelComponents.Articulation;
-const Asset = ModelComponents.Asset;
-const Scene = ModelComponents.Scene;
-const Components = ModelComponents.Components;
-const MetallicRoughness = ModelComponents.MetallicRoughness;
-const SpecularGlossiness = ModelComponents.SpecularGlossiness;
-const Material = ModelComponents.Material;
+const {
+  Attribute,
+  Indices,
+  FeatureIdAttribute,
+  FeatureIdTexture,
+  FeatureIdImplicitRange,
+  MorphTarget,
+  Primitive,
+  Instances,
+  Skin,
+  Node,
+  AnimatedPropertyType,
+  AnimationSampler,
+  AnimationTarget,
+  AnimationChannel,
+  Animation,
+  ArticulationStage,
+  Articulation,
+  Asset,
+  Scene,
+  Components,
+  MetallicRoughness,
+  SpecularGlossiness,
+  Material,
+} = ModelComponents;
 
 /**
  * States of the glTF loading process. These states also apply to
@@ -478,6 +480,14 @@ GltfLoader.prototype.load = function () {
   return this._promise;
 };
 
+/**
+ * Handle errors
+ *
+ * @param {GltfLoader} gltfLoader
+ * @param {Error} error
+ * @returns {Promise} A promise that rejects with a constructed Error
+ * @private
+ */
 function handleError(gltfLoader, error) {
   gltfLoader.unload();
   const errorMessage = "Failed to load glTF";
@@ -485,6 +495,13 @@ function handleError(gltfLoader, error) {
   return Promise.reject(error);
 }
 
+/**
+ * Invoke subsidiary loaders for bufferViews, geometries, and structural metadata
+ *
+ * @param {GltfLoader} loader
+ * @param {FrameState} frameState
+ * @private
+ */
 function processLoaders(loader, frameState) {
   const bufferViewLoaders = loader._bufferViewLoaders;
   const bufferViewLoadersLength = bufferViewLoaders.length;
@@ -503,9 +520,15 @@ function processLoaders(loader, frameState) {
   }
 }
 
+/**
+ * Apply post-processing steps on geometry such as
+ * updating attributes for rendering outlines.
+ *
+ * @param {GltfLoader} loader
+ * @param {Context} context
+ * @private
+ */
 function postProcessGeometry(loader, context) {
-  // Apply post-processing steps on geometry such as
-  // updating attributes for rendering outlines.
   const loadPlans = loader._primitiveLoadPlans;
   const length = loadPlans.length;
   for (let i = 0; i < length; i++) {
@@ -521,6 +544,12 @@ function postProcessGeometry(loader, context) {
   }
 }
 
+/**
+ * Gather buffers for post-processing
+ * @param {GltfLoader} loader
+ * @param {PrimitiveLoadPlan} primitiveLoadPlan
+ * @private
+ */
 function gatherPostProcessBuffers(loader, primitiveLoadPlan) {
   const buffers = loader._postProcessBuffers;
   const primitive = primitiveLoadPlan.primitive;
@@ -867,6 +896,17 @@ function setQuantizationFromWeb3dQuantizedAttributes(
   attribute.quantization = quantization;
 }
 
+/**
+ *
+ * @param {Object} gltf A parsed glTF JSON object, as returned by GltfJsonLoader.gltf
+ * @param {*} accessorId
+ * @param {String} name
+ * @param {String} semantic
+ * @param {Number|undefined} setIndex
+ * @param {Boolean} hasKhrMeshQuantization
+ * @returns {ModelComponents.Attribute}
+ * @private
+ */
 function createAttribute(
   gltf,
   accessorId,
@@ -917,6 +957,11 @@ function createAttribute(
   return attribute;
 }
 
+/**
+ *
+ * @param {String} gltfSemantic
+ * @returns {Number|undefined}
+ */
 function getSetIndex(gltfSemantic) {
   const setIndexRegex = /^\w+_(\d+)$/;
   const setIndexMatch = setIndexRegex.exec(gltfSemantic);
@@ -1023,6 +1068,18 @@ function finalizeAttribute(
   }
 }
 
+/**
+ *
+ * @param {GltfLoader} loader
+ * @param {Object} gltf A parsed glTF JSON object, as returned by GltfJsonLoader.gltf
+ * @param {*} accessorId
+ * @param {Object} semanticInfo
+ * @param {Object} draco
+ * @param {Boolean} loadBuffer
+ * @param {Boolean} loadTypedArray
+ * @returns {ModelComponents.Attribute}
+ * @private
+ */
 function loadAttribute(
   loader,
   gltf,
@@ -1101,6 +1158,19 @@ function loadAttribute(
   return attribute;
 }
 
+/**
+ *
+ * @param {GltfLoader} loader
+ * @param {Object} gltf A parsed glTF JSON object, as returned by GltfJsonLoader.gltf
+ * @param {*} accessorId
+ * @param {Object} semanticInfo
+ * @param {Object} draco
+ * @param {Boolean} hasInstances
+ * @param {Boolean} needsPostProcessing
+ * @param {FrameState} frameState
+ * @returns {PrimitiveLoadPlan.AttributeLoadPlan}
+ * @private
+ */
 function loadVertexAttribute(
   loader,
   gltf,
@@ -1629,6 +1699,18 @@ function loadMorphTarget(
   return morphTarget;
 }
 
+/**
+ * Load a primitive referenced in a glTF JSON file
+ *
+ * @param {GltfLoader} loader
+ * @param {Object} gltf A parsed glTF JSON object, as returned by GltfJsonLoader.gltf
+ * @param {Object} gltfPrimitive The description of a primitive from the glTF JSON file
+ * @param {Boolean} hasInstances
+ * @param {SupportedImageFormats} supportedImageFormats
+ * @param {FrameState} frameState
+ * @returns {ModelComponents.Primitive}
+ * @private
+ */
 function loadPrimitive(
   loader,
   gltf,
@@ -2060,6 +2142,17 @@ function loadInstanceFeaturesLegacy(
   }
 }
 
+/**
+ * Load a single node referenced in a glTF JSON file
+ *
+ * @param {GltfLoader} loader
+ * @param {Object} gltf A parsed glTF JSON object, as returned by GltfJsonLoader.gltf
+ * @param {Object} gltfNode The description of a node from the glTF JSON file
+ * @param {SupportedImageFormats} supportedImageFormats
+ * @param {FrameState} frameState
+ * @returns {ModelComponents.Node}
+ * @private
+ */
 function loadNode(loader, gltf, gltfNode, supportedImageFormats, frameState) {
   const node = new Node();
 
@@ -2124,6 +2217,16 @@ function loadNode(loader, gltf, gltfNode, supportedImageFormats, frameState) {
   return node;
 }
 
+/**
+ * Load all the nodes referenced in a glTF JSON file
+ *
+ * @param {GltfLoader} loader
+ * @param {Object} gltf A parsed glTF JSON object, as returned by GltfJsonLoader.gltf
+ * @param {SupportedImageFormats} supportedImageFormats
+ * @param {FrameState} frameState
+ * @returns {ModelComponents.Node[]}
+ * @private
+ */
 function loadNodes(loader, gltf, supportedImageFormats, frameState) {
   if (!defined(gltf.nodes)) {
     return [];
@@ -2405,6 +2508,16 @@ function loadScene(gltf, nodes) {
 
 const scratchCenter = new Cartesian3();
 
+/**
+ *
+ * @param {GltfLoader} loader
+ * @param {Object} gltf A parsed glTF JSON object, as returned by GltfJsonLoader.gltf
+ * @param {SupportedImageFormats} supportedImageFormats
+ * @param {FrameState} frameState
+ * @param {Function} rejectPromise A function that will reject the glTF processing promise
+ * @param {Function} rejectTexturesPromise A function that will reject the textures processing promise
+ * @private
+ */
 function parse(
   loader,
   gltf,
