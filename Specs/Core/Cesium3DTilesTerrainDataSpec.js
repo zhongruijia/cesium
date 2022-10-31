@@ -1,19 +1,21 @@
-import { Axis } from "../../Source/Cesium.js";
-import { BoundingSphere } from "../../Source/Cesium.js";
-import { Cartesian3 } from "../../Source/Cesium.js";
-import { Cartographic } from "../../Source/Cesium.js";
-import { Cesium3DTilesTerrainData } from "../../Source/Cesium.js";
-import { defined } from "../../Source/Cesium.js";
-import { GeographicTilingScheme } from "../../Source/Cesium.js";
-import { Math as CesiumMath } from "../../Source/Cesium.js";
-import { Matrix4 } from "../../Source/Cesium.js";
-import { Rectangle } from "../../Source/Cesium.js";
-import { TerrainData } from "../../Source/Cesium.js";
-import { TerrainMesh } from "../../Source/Cesium.js";
-import { TerrainProvider } from "../../Source/Cesium.js";
-import { Transforms } from "../../Source/Cesium.js";
-import { OrientedBoundingBox } from "../../Source/Cesium.js";
-import { EllipsoidalOccluder } from "../../Source/Cesium.js";
+import {
+  Axis,
+  BoundingSphere,
+  Cartesian3,
+  Cartographic,
+  Cesium3DTilesTerrainData,
+  defined,
+  GeographicTilingScheme,
+  Math as CesiumMath,
+  Matrix4,
+  Rectangle,
+  TerrainData,
+  TerrainMesh,
+  TerrainProvider,
+  Transforms,
+  OrientedBoundingBox,
+  EllipsoidalOccluder,
+} from "../../Source/Cesium.js";
 
 /**
  * @param {Float32Array|Uint8Array|Uint16Array|Uint32Array} buffer

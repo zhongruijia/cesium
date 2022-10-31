@@ -1,4 +1,4 @@
-import MeshoptDecoder from "../ThirdParty/meshoptimizer.js";
+import { MeshoptDecoder } from "meshoptimizer";
 import AttributeCompression from "./AttributeCompression.js";
 import Axis from "../Scene/Axis.js";
 import AxisAlignedBoundingBox from "./AxisAlignedBoundingBox.js";

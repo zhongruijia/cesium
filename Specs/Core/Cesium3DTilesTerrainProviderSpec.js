@@ -1,6 +1,8 @@
-import { Cesium3DTilesTerrainProvider } from "../../Source/Cesium.js";
-import { Resource } from "../../Source/Cesium.js";
-import { TerrainProvider } from "../../Source/Cesium.js";
+import {
+  Cesium3DTilesTerrainProvider,
+  Resource,
+  TerrainProvider,
+} from "../../Source/Cesium.js";
 
 describe("Core/Cesium3DTilesTerrainProvider", function () {
   it("conforms to TerrainProvider interface", function () {
