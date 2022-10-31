@@ -18,7 +18,7 @@ import Model from "./Model.js";
  * @constructor
  * @private
  */
-export default function Model3DTileContent(tileset, tile, resource) {
+function Model3DTileContent(tileset, tile, resource) {
   this._tileset = tileset;
   this._tile = tile;
   this._resource = resource;
@@ -240,6 +240,7 @@ Model3DTileContent.prototype.update = function (tileset, frameState) {
     model._clippingPlanes !== tilesetClippingPlanes
   ) {
     model._clippingPlanes = tilesetClippingPlanes;
+    model._clippingPlanesState = 0;
   }
 
   model.update(frameState);
@@ -268,6 +269,12 @@ Model3DTileContent.fromGltf = function (tileset, tile, resource, gltf) {
     content,
     additionalOptions
   );
+
+  const classificationType = tileset.vectorClassificationOnly
+    ? undefined
+    : tileset.classificationType;
+
+  modelOptions.classificationType = classificationType;
 
   const model = Model.fromGltf(modelOptions);
   content._model = model;
@@ -303,6 +310,12 @@ Model3DTileContent.fromB3dm = function (
     content,
     additionalOptions
   );
+
+  const classificationType = tileset.vectorClassificationOnly
+    ? undefined
+    : tileset.classificationType;
+
+  modelOptions.classificationType = classificationType;
 
   const model = Model.fromB3dm(modelOptions);
   content._model = model;
@@ -402,10 +415,6 @@ Model3DTileContent.fromGeoJson = function (tileset, tile, resource, geoJson) {
 };
 
 function makeModelOptions(tileset, tile, content, additionalOptions) {
-  const classificationType = tileset.vectorClassificationOnly
-    ? undefined
-    : tileset.classificationType;
-
   const mainOptions = {
     cull: false, // The model is already culled by 3D Tiles
     releaseGltfJson: true, // Models are unique and will not benefit from caching so save memory
@@ -434,8 +443,9 @@ function makeModelOptions(tileset, tile, content, additionalOptions) {
     enableShowOutline: tileset._enableShowOutline,
     showOutline: tileset.showOutline,
     outlineColor: tileset.outlineColor,
-    classificationType: classificationType,
   };
 
   return combine(additionalOptions, mainOptions);
 }
+
+export default Model3DTileContent;

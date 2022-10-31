@@ -12,13 +12,13 @@ import {
   ColorGeometryInstanceAttribute,
   ContentMetadata,
   defaultValue,
-  defined,
   destroyObject,
   Ellipsoid,
   GeometryInstance,
   GroupMetadata,
   HeadingPitchRange,
   HeadingPitchRoll,
+  JulianDate,
   Math as CesiumMath,
   Matrix4,
   MetadataClass,
@@ -74,6 +74,8 @@ describe(
       "./Data/Cesium3DTiles/Instanced/InstancedWithBatchTable/tileset.json";
     const instancedExternalGltfUrl =
       "./Data/Cesium3DTiles/Instanced/InstancedGltfExternal/tileset.json";
+    const instancedWithoutNormalsUrl =
+      "./Data/Cesium3DTiles/Instanced/InstancedWithoutNormals/tileset.json";
     const instancedWithoutBatchTableUrl =
       "./Data/Cesium3DTiles/Instanced/InstancedWithoutBatchTable/tileset.json";
     const instancedWithBatchIdsUrl =
@@ -124,6 +126,8 @@ describe(
     let scene;
     const centerLongitude = -1.31968;
     const centerLatitude = 0.698874;
+
+    const webglStub = !!window.webglStub;
 
     function setCamera(longitude, latitude, range) {
       // One feature is located at the center, point the camera there
@@ -420,8 +424,10 @@ describe(
           function (tileset) {
             const content = tileset.root.content;
 
-            // 10 buildings, 36 ushort indices and 24 vertices per building, 8 float components (position, normal, uv) and 1 uint component (batchId) per vertex.
-            // 10 * ((24 * (8 * 4 + 1 * 4)) + (36 * 2)) = 9360
+            // 10 buildings, 36 ushort indices and 24 vertices per building, 8
+            // float components (position, normal, uv) and 1 uint component
+            // (batchId) per vertex
+            // 10 * [(24 * (8 * 4 + 1 * 4)) + (36 * 2)] = 9360 bytes
             const geometryByteLength = 9360;
 
             // Texture is 128x128 RGBA bytes, not mipmapped
@@ -532,6 +538,15 @@ describe(
         });
       });
 
+      it("renders without normals", function () {
+        return Cesium3DTilesTester.loadTileset(
+          scene,
+          instancedWithoutNormalsUrl
+        ).then(function (tileset) {
+          Cesium3DTilesTester.expectRenderTileset(scene, tileset);
+        });
+      });
+
       it("renders with batch table", function () {
         return Cesium3DTilesTester.loadTileset(
           scene,
@@ -636,7 +651,13 @@ describe(
     });
 
     describe("pnts", function () {
+      const time = new JulianDate(2457522.0);
+      const renderOptions = {
+        time: time,
+      };
+
       beforeEach(function () {
+        renderOptions.scene = scene;
         setCamera(centerLongitude, centerLatitude, 5.0);
       });
 
@@ -657,7 +678,7 @@ describe(
               color: "vec4(Number(${secondaryColor}[0] < 1.0), 0.0, 0.0, 1.0)",
             });
 
-            expect(scene).toRenderAndCall(function (rgba) {
+            expect(renderOptions).toRenderAndCall(function (rgba) {
               // Produces a red color
               expect(rgba[0]).toBeGreaterThan(rgba[1]);
               expect(rgba[0]).toBeGreaterThan(rgba[2]);
@@ -697,13 +718,13 @@ describe(
         return Cesium3DTilesTester.loadTileset(scene, pointCloudRGBUrl).then(
           function (tileset) {
             let color;
-            expect(scene).toRenderAndCall(function (rgba) {
+            expect(renderOptions).toRenderAndCall(function (rgba) {
               color = rgba;
             });
             tileset.debugColorizeTiles = true;
-            expect(scene).notToRender(color);
+            expect(renderOptions).notToRender(color);
             tileset.debugColorizeTiles = false;
-            expect(scene).toRender(color);
+            expect(renderOptions).toRender(color);
           }
         );
       });
@@ -720,13 +741,13 @@ describe(
           tileset.style = new Cesium3DTileStyle({
             color: 'color("red")',
           });
-          expect(scene).toRender([255, 0, 0, 255]);
+          expect(renderOptions).toRender([255, 0, 0, 255]);
 
           // Applies translucency
           tileset.style = new Cesium3DTileStyle({
             color: "rgba(255, 0, 0, 0.005)",
           });
-          expect(scene).toRenderAndCall(function (rgba) {
+          expect(renderOptions).toRenderAndCall(function (rgba) {
             // Pixel is a darker red
             expect(rgba[0]).toBeGreaterThan(0);
             expect(rgba[0]).toBeLessThan(255);
@@ -737,7 +758,7 @@ describe(
 
           // Remove style
           tileset.style = undefined;
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
         });
       });
 
@@ -753,17 +774,17 @@ describe(
           tileset.style = new Cesium3DTileStyle({
             show: false,
           });
-          expect(scene).toRender([0, 0, 0, 255]);
+          expect(renderOptions).toRender([0, 0, 0, 255]);
 
           // Apply show style that shows all points
           tileset.style = new Cesium3DTileStyle({
             show: true,
           });
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
 
           // Remove style
           tileset.style = undefined;
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
         });
       });
 
@@ -782,11 +803,11 @@ describe(
           tileset.style = new Cesium3DTileStyle({
             pointSize: 5.0,
           });
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
 
           // Remove style
           tileset.style = undefined;
-          expect(scene).toRender([0, 0, 0, 255]);
+          expect(renderOptions).toRender([0, 0, 0, 255]);
         });
       });
 
@@ -802,7 +823,7 @@ describe(
           tileset.style = new Cesium3DTileStyle({
             color: "vec4(${COLOR}[0], 0.0, 0.0, 1.0)",
           });
-          expect(scene).toRenderAndCall(function (rgba) {
+          expect(renderOptions).toRenderAndCall(function (rgba) {
             expect(rgba[0]).toBeGreaterThan(0);
             expect(rgba[1]).toBe(0);
             expect(rgba[2]).toBe(0);
@@ -813,16 +834,16 @@ describe(
           tileset.style = new Cesium3DTileStyle({
             show: "${POSITION}[0] > -50.0",
           });
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
 
           tileset.style = new Cesium3DTileStyle({
             show: "${POSITION}[0] > 50.0",
           });
-          expect(scene).toRender([0, 0, 0, 255]);
+          expect(renderOptions).toRender([0, 0, 0, 255]);
 
           // Remove style
           tileset.style = undefined;
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
         });
       });
 
@@ -838,16 +859,16 @@ describe(
           tileset.style = new Cesium3DTileStyle({
             show: "${temperature} > 1.0",
           });
-          expect(scene).toRender([0, 0, 0, 255]);
+          expect(renderOptions).toRender([0, 0, 0, 255]);
 
           tileset.style = new Cesium3DTileStyle({
             show: "${temperature} > 0.1",
           });
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
 
           // Remove style
           tileset.style = undefined;
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
         });
       });
 
@@ -863,7 +884,7 @@ describe(
             color: "color() * ${temperature_}",
           });
 
-          expect(scene).toRenderAndCall(function (rgba) {
+          expect(renderOptions).toRenderAndCall(function (rgba) {
             // Pixel color is some shade of gray
             expect(rgba[0]).toBe(rgba[1]);
             expect(rgba[0]).toBe(rgba[2]);
@@ -873,7 +894,7 @@ describe(
 
           // Remove style
           tileset.style = undefined;
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
         });
       });
 
@@ -890,7 +911,7 @@ describe(
             pointSize: 5.0,
           });
 
-          expect(scene).toRenderAndCall(function (rgba) {
+          expect(renderOptions).toRenderAndCall(function (rgba) {
             expect(rgba[0]).toBeGreaterThan(0);
             expect(rgba[0]).toBeLessThan(255);
             expect(rgba[1]).toBe(0);
@@ -900,7 +921,7 @@ describe(
 
           // Remove style
           tileset.style = undefined;
-          expect(scene).notToRender([0, 0, 0, 255]);
+          expect(renderOptions).notToRender([0, 0, 0, 255]);
         });
       });
 
@@ -996,73 +1017,47 @@ describe(
       });
 
       it("point cloud with per-point properties work", function () {
-        // When the batch table contains per-point properties, aka no batching,
-        // a ModelFeatureTable is created, but it will have no properties
+        // When the batch table contains only per-point properties, no feature
+        // table will be created.
         return Cesium3DTilesTester.loadTileset(
           scene,
           pointCloudWithPerPointPropertiesUrl
         ).then(function (tileset) {
           const content = tileset.root.content;
-          expect(content.featuresLength).toBe(1000);
+          expect(content.featuresLength).toBe(0);
           expect(content.innerContents).toBeUndefined();
-
-          const feature = content.getFeature(0);
-          expect(feature).toBeDefined();
-          const propertyNames = [];
-          feature.getPropertyNames(propertyNames);
-          expect(propertyNames).toEqual([]);
         });
       });
 
-      // This will be added in a separate PR
-      xit("Supports back face culling when there are per-point normals", function () {
+      it("Supports back face culling when there are per-point normals", function () {
+        // Since this test relies on picking, it will not work properly with webglStub
+        if (webglStub) {
+          return;
+        }
+
         return Cesium3DTilesTester.loadTileset(
           scene,
           pointCloudBatchedUrl
         ).then(function (tileset) {
-          const content = tileset.root.content;
-
           // Get the number of picked sections with back face culling on
           let pickedCountCulling = 0;
           let pickedCount = 0;
-          let picked;
 
-          const callback = function (result) {
-            picked = result;
-          };
+          // Set culling to true
+          tileset.pointCloudShading.backFaceCulling = true;
 
-          expect(scene).toPickAndCall(function (result) {
-            // Set culling to true
-            tileset.pointCloudShading.backFaceCulling = true;
-
-            expect(scene).toPickAndCall(callback);
-
-            while (defined(picked)) {
-              picked.show = false;
-              expect(scene).toPickAndCall(callback);
-              ++pickedCountCulling;
-            }
-
-            // Set the shows back to true
-            const length = content.featuresLength;
-            for (let i = 0; i < length; ++i) {
-              const feature = content.getFeature(i);
-              feature.show = true;
-            }
-
-            // Set culling to false
-            tileset.pointCloudShading.backFaceCulling = false;
-
-            expect(scene).toPickAndCall(callback);
-
-            while (defined(picked)) {
-              picked.show = false;
-              expect(scene).toPickAndCall(callback);
-              ++pickedCount;
-            }
-
-            expect(pickedCount).toBeGreaterThan(pickedCountCulling);
+          expect(scene).toDrillPickAndCall(function (pickedObjects) {
+            pickedCountCulling = pickedObjects.length;
           });
+
+          // Set culling to false
+          tileset.pointCloudShading.backFaceCulling = false;
+
+          expect(scene).toDrillPickAndCall(function (pickedObjects) {
+            pickedCount = pickedObjects.length;
+          });
+
+          expect(pickedCount).toBeGreaterThan(pickedCountCulling);
         });
       });
 
@@ -1493,6 +1488,39 @@ describe(
 
             tile.update(tileset, scene.frameState, passOptions);
             expect(model.clippingPlanes).toBe(tileset.clippingPlanes);
+          }
+        );
+      });
+
+      it("replaces clipping planes collection with one of the same length", function () {
+        return Cesium3DTilesTester.loadTileset(scene, withBatchTableUrl).then(
+          function (tileset) {
+            const tile = tileset.root;
+            const model = tile.content._model;
+            const passOptions = Cesium3DTilePass.getPassOptions(
+              Cesium3DTilePass.RENDER
+            );
+
+            expect(model.clippingPlanes).toBeUndefined();
+
+            spyOn(model, "resetDrawCommands");
+
+            const clippingPlaneCollection = new ClippingPlaneCollection({
+              planes: [new ClippingPlane(Cartesian3.UNIT_X, 0.0)],
+            });
+            tileset.clippingPlanes = clippingPlaneCollection;
+            tile.update(tileset, scene.frameState, passOptions);
+
+            expect(model.resetDrawCommands).toHaveBeenCalled();
+            expect(model.resetDrawCommands.calls.count()).toBe(1);
+
+            const newClippingPlaneCollection = new ClippingPlaneCollection({
+              planes: [new ClippingPlane(Cartesian3.UNIT_X, 0.0)],
+            });
+            tileset.clippingPlanes = newClippingPlaneCollection;
+            tile.update(tileset, scene.frameState, passOptions);
+
+            expect(model.resetDrawCommands.calls.count()).toBe(2);
           }
         );
       });

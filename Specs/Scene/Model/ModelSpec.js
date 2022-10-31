@@ -26,8 +26,9 @@ import {
   Math as CesiumMath,
   Matrix4,
   Model,
-  ModelSceneGraph,
   ModelFeature,
+  ModelSceneGraph,
+  OctahedralProjectedCubeMap,
   Pass,
   PrimitiveType,
   Resource,
@@ -39,6 +40,7 @@ import {
   Transforms,
   WireframeIndexGenerator,
 } from "../../../Source/Cesium.js";
+import ModelUtility from "../../../Source/Scene/Model/ModelUtility.js";
 import createScene from "../../createScene.js";
 import pollToPromise from "../../pollToPromise.js";
 import loadAndZoomToModel from "./loadAndZoomToModel.js";
@@ -49,9 +51,9 @@ describe(
     const webglStub = !!window.webglStub;
 
     const triangleWithoutIndicesUrl =
-      "./Data/Models/GltfLoader/TriangleWithoutIndices/glTF/TriangleWithoutIndices.gltf";
+      "./Data/Models/glTF-2.0/TriangleWithoutIndices/glTF/TriangleWithoutIndices.gltf";
     const animatedTriangleUrl =
-      "./Data/Models/GltfLoader/AnimatedTriangle/glTF/AnimatedTriangle.gltf";
+      "./Data/Models/glTF-2.0/AnimatedTriangle/glTF/AnimatedTriangle.gltf";
     const animatedTriangleOffset = new HeadingPitchRange(
       CesiumMath.PI / 2.0,
       0,
@@ -59,17 +61,19 @@ describe(
     );
 
     const boxTexturedGltfUrl =
-      "./Data/Models/GltfLoader/BoxTextured/glTF/BoxTextured.gltf";
+      "./Data/Models/glTF-2.0/BoxTextured/glTF/BoxTextured.gltf";
     const boxTexturedGlbUrl =
-      "./Data/Models/GltfLoader/BoxTextured/glTF-Binary/BoxTextured.glb";
+      "./Data/Models/glTF-2.0/BoxTextured/glTF-Binary/BoxTextured.glb";
     const buildingsMetadata =
-      "./Data/Models/GltfLoader/BuildingsMetadata/glTF/buildings-metadata.gltf";
+      "./Data/Models/glTF-2.0/BuildingsMetadata/glTF/buildings-metadata.gltf";
 
     const boxInstanced =
-      "./Data/Models/GltfLoader/BoxInstanced/glTF/box-instanced.gltf";
-    const boxUnlitUrl = "./Data/Models/PBR/BoxUnlit/BoxUnlit.gltf";
+      "./Data/Models/glTF-2.0/BoxInstanced/glTF/box-instanced.gltf";
+    const boxInstancedNoNormalsUrl =
+      "./Data/Models/glTF-2.0/BoxInstancedNoNormals/glTF/BoxInstancedNoNormals.gltf";
+    const boxUnlitUrl = "./Data/Models/glTF-2.0/UnlitTest/glTF/UnlitTest.gltf";
     const boxArticulationsUrl =
-      "./Data/Models/GltfLoader/BoxArticulations/glTF/BoxArticulations.gltf";
+      "./Data/Models/glTF-2.0/BoxArticulations/glTF/BoxArticulations.gltf";
     // prettier-ignore
     const boxArticulationsMatrix = Matrix4.fromRowMajorArray([
       1, 0, 0, 0,
@@ -77,23 +81,28 @@ describe(
       0, -1, 0, 0,
       0, 0, 0, 1
     ]);
+    const boxWithOffsetUrl =
+      "./Data/Models/glTF-2.0/BoxWithOffset/glTF/BoxWithOffset.gltf";
 
-    const microcosm = "./Data/Models/GltfLoader/Microcosm/glTF/microcosm.gltf";
+    const microcosm = "./Data/Models/glTF-2.0/Microcosm/glTF/microcosm.gltf";
     const morphPrimitivesTestUrl =
-      "./Data/Models/GltfLoader/MorphPrimitivesTest/glTF/MorphPrimitivesTest.gltf";
+      "./Data/Models/glTF-2.0/MorphPrimitivesTest/glTF/MorphPrimitivesTest.gltf";
     const pointCloudUrl =
-      "./Data/Models/GltfLoader/PointCloudWithRGBColors/glTF-Binary/PointCloudWithRGBColors.glb";
+      "./Data/Models/glTF-2.0/PointCloudWithRGBColors/glTF-Binary/PointCloudWithRGBColors.glb";
     const twoSidedPlaneUrl =
-      "./Data/Models/GltfLoader/TwoSidedPlane/glTF/TwoSidedPlane.gltf";
+      "./Data/Models/glTF-2.0/TwoSidedPlane/glTF/TwoSidedPlane.gltf";
     const vertexColorTestUrl =
-      "./Data/Models/PBR/VertexColorTest/VertexColorTest.gltf";
-    const emissiveTextureUrl = "./Data/Models/PBR/BoxEmissive/BoxEmissive.gltf";
+      "./Data/Models/glTF-2.0/VertexColorTest/glTF/VertexColorTest.gltf";
+    const emissiveTextureUrl =
+      "./Data/Models/glTF-2.0/BoxEmissive/glTF/BoxEmissive.gltf";
     const boomBoxUrl =
-      "./Data/Models/GltfLoader/BoomBox/glTF-pbrSpecularGlossiness/BoomBox.gltf";
+      "./Data/Models/glTF-2.0/BoomBox/glTF-pbrSpecularGlossiness/BoomBox.gltf";
     const riggedFigureUrl =
-      "./Data/Models/GltfLoader/RiggedFigureTest/glTF/RiggedFigureTest.gltf";
+      "./Data/Models/glTF-2.0/RiggedFigureTest/glTF/RiggedFigureTest.gltf";
     const dracoCesiumManUrl =
-      "./Data/Models/DracoCompression/CesiumMan/CesiumMan.gltf";
+      "./Data/Models/glTF-2.0/CesiumMan/glTF-Draco/CesiumMan.gltf";
+    const boxCesiumRtcUrl =
+      "./Data/Models/glTF-2.0/BoxCesiumRtc/glTF/BoxCesiumRtc.gltf";
 
     const fixedFrameTransform = Transforms.localFrameToFixedFrameGenerator(
       "north",
@@ -610,7 +619,7 @@ describe(
     });
 
     // This test does not yet work since models without normals are
-    // rendered as unlit
+    // rendered as unlit. See https://github.com/CesiumGS/cesium/issues/6506
     xit("renders model with emissive texture", function () {
       const resource = Resource.createIfNeeded(emissiveTextureUrl);
       return resource.fetchJson().then(function (gltf) {
@@ -638,12 +647,19 @@ describe(
     });
 
     it("renders model with the KHR_materials_pbrSpecularGlossiness extension", function () {
+      // This model gets clipped if log depth is disabled, so zoom out
+      // the camera just a little
+      const offset = new HeadingPitchRange(0, -CesiumMath.PI_OVER_FOUR, 2);
+
       const resource = Resource.createIfNeeded(boomBoxUrl);
       return resource.fetchJson().then(function (gltf) {
         return loadAndZoomToModel(
           {
             gltf: gltf,
             basePath: boomBoxUrl,
+            // This model is tiny, so scale it up so it's visible.
+            scale: 10.0,
+            offset: offset,
           },
           scene
         ).then(function (model) {
@@ -653,12 +669,17 @@ describe(
     });
 
     it("renders model with morph targets", function () {
+      // This model gets clipped if log depth is disabled, so zoom out
+      // the camera just a little
+      const offset = new HeadingPitchRange(0, -CesiumMath.PI_OVER_FOUR, 2);
+
       const resource = Resource.createIfNeeded(morphPrimitivesTestUrl);
       return resource.fetchJson().then(function (gltf) {
         return loadAndZoomToModel(
           {
             gltf: gltf,
             basePath: morphPrimitivesTestUrl,
+            offset: offset,
           },
           scene
         ).then(function (model) {
@@ -782,6 +803,17 @@ describe(
       });
     });
 
+    it("renders model with CESIUM_RTC extension", function () {
+      return loadAndZoomToModel(
+        {
+          gltf: boxCesiumRtcUrl,
+        },
+        scene
+      ).then(function (model) {
+        verifyRender(model, true);
+      });
+    });
+
     it("adds animation to draco-compressed model", function () {
       return loadAndZoomToModel({ gltf: dracoCesiumManUrl }, scene).then(
         function (model) {
@@ -795,6 +827,34 @@ describe(
           expect(animationCollection.length).toBe(1);
         }
       );
+    });
+
+    it("renders model with instancing but no normals", function () {
+      // None of the 4 instanced cubes are in the center of the model's bounding
+      // sphere, so set up a camera view that focuses in on one of them.
+      const offset = new HeadingPitchRange(
+        CesiumMath.PI_OVER_TWO,
+        -CesiumMath.PI_OVER_FOUR,
+        1
+      );
+
+      const resource = Resource.createIfNeeded(boxInstancedNoNormalsUrl);
+      return resource.fetchJson().then(function (gltf) {
+        return loadAndZoomToModel(
+          {
+            gltf: gltf,
+            basePath: boxInstancedNoNormalsUrl,
+            offset: offset,
+          },
+          scene
+        ).then(function (model) {
+          const renderOptions = {
+            zoomToModel: false,
+          };
+
+          verifyRender(model, true, renderOptions);
+        });
+      });
     });
 
     it("show works", function () {
@@ -881,6 +941,7 @@ describe(
           gltf: boxTexturedGlbUrl,
           modelMatrix: modelMatrix,
           projectTo2D: true,
+          incrementallyLoadTextures: false,
         },
         scene2D
       ).then(function (model) {
@@ -898,6 +959,7 @@ describe(
           gltf: boxTexturedGlbUrl,
           modelMatrix: modelMatrix,
           projectTo2D: true,
+          incrementallyLoadTextures: false,
         },
         sceneCV
       ).then(function (model) {
@@ -943,9 +1005,7 @@ describe(
         function (result) {
           model = result;
           // Renders without style.
-          verifyRender(model, true, {
-            zoomToModel: false,
-          });
+          verifyRender(model, true);
 
           // Renders with opaque style.
           style = new Cesium3DTileStyle({
@@ -955,9 +1015,10 @@ describe(
           });
 
           model.style = style;
-          verifyRender(model, true, {
-            zoomToModel: false,
-          });
+          verifyRender(model, true);
+          expect(model._styleCommandsNeeded).toBe(
+            StyleCommandsNeeded.ALL_OPAQUE
+          );
 
           // Renders with translucent style.
           style = new Cesium3DTileStyle({
@@ -967,34 +1028,38 @@ describe(
           });
 
           model.style = style;
-          verifyRender(model, true, {
-            zoomToModel: false,
-          });
+          verifyRender(model, true);
+          expect(model._styleCommandsNeeded).toBe(
+            StyleCommandsNeeded.ALL_TRANSLUCENT
+          );
 
-          // Does not render when style disables show.
+          // Does not render with invisible color.
           style = new Cesium3DTileStyle({
             color: {
               conditions: [["${height} > 1", "color('red', 0.0)"]],
             },
           });
 
-          model.style = style;
-          verifyRender(model, false, {
-            zoomToModel: false,
+          // Does not render when style disables show.
+          style = new Cesium3DTileStyle({
+            show: {
+              conditions: [["${height} > 1", "false"]],
+            },
           });
+
+          model.style = style;
+          verifyRender(model, false);
 
           // Render when style is removed.
           model.style = undefined;
-          verifyRender(model, true, {
-            zoomToModel: false,
-          });
+          verifyRender(model, true);
         }
       );
     });
 
     describe("credits", function () {
       const boxWithCreditsUrl =
-        "./Data/Models/GltfLoader/BoxWithCopyright/glTF/Box.gltf";
+        "./Data/Models/glTF-2.0/BoxWithCopyright/glTF/Box.gltf";
 
       it("initializes with credit", function () {
         const credit = new Credit("User Credit");
@@ -1222,9 +1287,9 @@ describe(
 
     describe("debugWireframe", function () {
       const triangleStripUrl =
-        "./Data/Models/GltfLoader/TriangleStrip/glTF/TriangleStrip.gltf";
+        "./Data/Models/glTF-2.0/TriangleStrip/glTF/TriangleStrip.gltf";
       const triangleFanUrl =
-        "./Data/Models/GltfLoader/TriangleFan/glTF/TriangleFan.gltf";
+        "./Data/Models/glTF-2.0/TriangleFan/glTF/TriangleFan.gltf";
 
       let sceneWithWebgl2;
 
@@ -1432,6 +1497,40 @@ describe(
             );
           });
         });
+      });
+
+      it("boundingSphere accounts for transform from CESIUM_RTC extension", function () {
+        return loadAndZoomToModel(
+          {
+            gltf: boxCesiumRtcUrl,
+          },
+          scene
+        ).then(function (model) {
+          const boundingSphere = model.boundingSphere;
+          expect(boundingSphere).toBeDefined();
+          expect(boundingSphere.center).toEqual(new Cartesian3(6378137, 0, 0));
+        });
+      });
+
+      it("boundingSphere updates bounding sphere when invoked", function () {
+        return loadAndZoomToModel({ gltf: boxTexturedGlbUrl }, scene).then(
+          function (model) {
+            const expectedRadius = 0.8660254037844386;
+            const translation = new Cartesian3(10, 0, 0);
+            const modelMatrix = Matrix4.fromTranslation(translation);
+            model.modelMatrix = modelMatrix;
+            model.scale = 2.0;
+
+            // boundingSphere should still account for the model matrix
+            // even though the scene has not yet updated.
+            const boundingSphere = model.boundingSphere;
+            expect(boundingSphere.center).toEqual(translation);
+            expect(boundingSphere.radius).toEqualEpsilon(
+              2.0 * expectedRadius,
+              CesiumMath.EPSILON8
+            );
+          }
+        );
       });
     });
 
@@ -2345,9 +2444,14 @@ describe(
       });
 
       it("renders with translucent color", function () {
+        // This model gets clipped if log depth is disabled, so zoom out
+        // the camera just a little
+        const offset = new HeadingPitchRange(0, -CesiumMath.PI_OVER_FOUR, 2);
+
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
+            offset: offset,
           },
           scene
         ).then(function (model) {
@@ -2372,10 +2476,15 @@ describe(
       });
 
       it("doesn't render invisible model", function () {
+        // This model gets clipped if log depth is disabled, so zoom out
+        // the camera just a little
+        const offset = new HeadingPitchRange(0, -CesiumMath.PI_OVER_FOUR, 2);
+
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
             color: Color.fromAlpha(Color.BLACK, 0.0),
+            offset: offset,
           },
           scene
         ).then(function (model) {
@@ -2416,10 +2525,15 @@ describe(
     }
 
     describe("colorBlendMode", function () {
+      // This model gets clipped if log depth is disabled, so zoom out
+      // the camera just a little
+      const offset = new HeadingPitchRange(0, -CesiumMath.PI_OVER_FOUR, 2);
+
       it("initializes with ColorBlendMode.HIGHLIGHT", function () {
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
+            offset: offset,
             color: Color.RED,
             colorBlendMode: ColorBlendMode.HIGHLIGHT,
           },
@@ -2441,6 +2555,7 @@ describe(
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
+            offset: offset,
             color: Color.RED,
             colorBlendMode: ColorBlendMode.REPLACE,
           },
@@ -2462,6 +2577,7 @@ describe(
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
+            offset: offset,
             color: Color.RED,
             colorBlendMode: ColorBlendMode.MIX,
           },
@@ -2483,6 +2599,7 @@ describe(
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
+            offset: offset,
             color: Color.RED,
             colorBlendMode: ColorBlendMode.REPLACE,
           },
@@ -2516,10 +2633,15 @@ describe(
     });
 
     describe("colorBlendAmount", function () {
+      // This model gets clipped if log depth is disabled, so zoom out
+      // the camera just a little
+      const offset = new HeadingPitchRange(0, -CesiumMath.PI_OVER_FOUR, 2);
+
       it("initializes with colorBlendAmount", function () {
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
+            offset: offset,
             color: Color.RED,
             colorBlendMode: ColorBlendMode.MIX,
             colorBlendAmount: 1.0,
@@ -2544,6 +2666,7 @@ describe(
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
+            offset: offset,
           },
           scene
         ).then(function (model) {
@@ -2770,27 +2893,6 @@ describe(
           });
         });
       });
-
-      it("silhouette works with style", function () {
-        const style = new Cesium3DTileStyle({
-          color: {
-            conditions: [["${height} > 1", "color('red', 0.5)"]],
-          },
-        });
-        return loadAndZoomToModel(
-          { gltf: buildingsMetadata, silhouetteSize: 1.0 },
-          scene
-        ).then(function (model) {
-          model.style = style;
-          scene.renderForSpecs();
-          const commandList = scene.frameState.commandList;
-          expect(commandList.length).toBe(2);
-          expect(commandList[0].renderState.stencilTest.enabled).toBe(true);
-          expect(commandList[0].pass).toBe(Pass.TRANSLUCENT);
-          expect(commandList[1].renderState.stencilTest.enabled).toBe(true);
-          expect(commandList[1].pass).toBe(Pass.TRANSLUCENT);
-        });
-      });
     });
 
     describe("light color", function () {
@@ -2822,10 +2924,15 @@ describe(
         return loadAndZoomToModel({ gltf: boxUnlitUrl }, scene).then(function (
           model
         ) {
-          verifyRender(model, true);
+          const options = {
+            zoomToModel: false,
+          };
+          // Move the camera to face one of the two boxes.
+          scene.camera.moveRight(1.0);
+          verifyRender(model, true, options);
 
           model.lightColor = Cartesian3.ZERO;
-          verifyRender(model, true);
+          verifyRender(model, true, options);
         });
       });
     });
@@ -3039,6 +3146,7 @@ describe(
         return loadAndZoomToModel(
           {
             gltf: boomBoxUrl,
+            scale: 10.0,
             imageBasedLighting: new ImageBasedLighting({
               specularEnvironmentMaps: url,
             }),
@@ -3072,6 +3180,21 @@ describe(
               expect(rgba).not.toEqual(result);
             });
           });
+        });
+      });
+
+      it("renders when specularEnvironmentMaps aren't supported", function () {
+        spyOn(OctahedralProjectedCubeMap, "isSupported").and.returnValue(false);
+
+        return loadAndZoomToModel(
+          {
+            gltf: boomBoxUrl,
+            scale: 10.0,
+          },
+          scene
+        ).then(function (model) {
+          expect(scene.specularEnvironmentMapsSupported).toBe(false);
+          verifyRender(model, true);
         });
       });
     });
@@ -3150,6 +3273,61 @@ describe(
             model.scale = 1.0;
             scene.renderForSpecs();
             expect(boundingSphere.center).toEqual(Cartesian3.ZERO);
+            expect(boundingSphere.radius).toEqualEpsilon(
+              expectedRadius,
+              CesiumMath.EPSILON3
+            );
+          });
+        });
+      });
+
+      it("changing scale affects bounding sphere for uncentered models", function () {
+        const resource = Resource.createIfNeeded(boxWithOffsetUrl);
+        const loadPromise = resource.fetchArrayBuffer();
+        return loadPromise.then(function (buffer) {
+          return loadAndZoomToModel(
+            {
+              gltf: new Uint8Array(buffer),
+              scale: 10,
+            },
+            scene
+          ).then(function (model) {
+            const expectedRadius = 0.866;
+            const expectedCenter = new Cartesian3(5.0, 0.0, 0.0);
+            const expectedTranslation = Matrix4.fromTranslation(expectedCenter);
+            const axisCorrectionMatrix = ModelUtility.getAxisCorrectionMatrix(
+              Axis.Y,
+              Axis.Z,
+              new Matrix4()
+            );
+            Matrix4.multiplyTransformation(
+              axisCorrectionMatrix,
+              expectedTranslation,
+              expectedTranslation
+            );
+            Matrix4.getTranslation(expectedTranslation, expectedCenter);
+
+            const boundingSphere = model.boundingSphere;
+            expect(boundingSphere.center).toEqual(
+              Cartesian3.multiplyByScalar(
+                expectedCenter,
+                10.0,
+                new Cartesian3()
+              )
+            );
+            expect(boundingSphere.radius).toEqualEpsilon(
+              expectedRadius * 10.0,
+              CesiumMath.EPSILON3
+            );
+
+            model.scale = 0.0;
+            scene.renderForSpecs();
+            expect(boundingSphere.center).toEqual(Cartesian3.ZERO);
+            expect(boundingSphere.radius).toEqual(0.0);
+
+            model.scale = 1.0;
+            scene.renderForSpecs();
+            expect(boundingSphere.center).toEqual(expectedCenter);
             expect(boundingSphere.radius).toEqualEpsilon(
               expectedRadius,
               CesiumMath.EPSILON3
@@ -3415,8 +3593,8 @@ describe(
       });
     });
 
-    describe("cull", function () {
-      it("enables culling", function () {
+    describe("frustum culling ", function () {
+      it("enables frustum culling", function () {
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
@@ -3439,8 +3617,7 @@ describe(
         });
       });
 
-      // This test does not yet work for Model
-      xit("disables culling", function () {
+      it("disables frustum culling", function () {
         return loadAndZoomToModel(
           {
             gltf: boxTexturedGltfUrl,
@@ -3457,7 +3634,7 @@ describe(
 
           // Commands should still be submitted when model is out of view.
           model.modelMatrix = Matrix4.fromTranslation(
-            new Cartesian3(100.0, 0.0, 0.0)
+            new Cartesian3(0.0, 100.0, 0.0)
           );
           scene.renderForSpecs();
           expect(scene.frustumCommandsList.length).toEqual(length);
@@ -3467,7 +3644,7 @@ describe(
 
     describe("back-face culling", function () {
       const boxBackFaceCullingUrl =
-        "./Data/Models/GltfLoader/BoxBackFaceCulling/glTF/BoxBackFaceCulling.gltf";
+        "./Data/Models/glTF-2.0/BoxBackFaceCulling/glTF/BoxBackFaceCulling.gltf";
       const boxBackFaceCullingOffset = new HeadingPitchRange(
         Math.PI / 2,
         0,
@@ -3664,11 +3841,9 @@ describe(
           { gltf: boxTexturedGlbUrl, clippingPlanes: clippingPlanes },
           scene
         ).then(function (model) {
-          scene.renderForSpecs();
           verifyRender(model, false);
 
           model.clippingPlanes = undefined;
-          scene.renderForSpecs();
           verifyRender(model, true);
         });
       });
@@ -3686,7 +3861,6 @@ describe(
         return loadAndZoomToModel({ gltf: boxTexturedGlbUrl }, scene).then(
           function (model) {
             let modelColor;
-            scene.renderForSpecs();
             verifyRender(model, true);
             expect(scene).toRenderAndCall(function (rgba) {
               modelColor = rgba;
@@ -3695,18 +3869,76 @@ describe(
             // The clipping plane should cut the model in half such that
             // we see the back faces.
             model.clippingPlanes = clippingPlanes;
-            scene.renderForSpecs();
             expect(scene).toRenderAndCall(function (rgba) {
               expect(rgba).not.toEqual(modelColor);
             });
 
             plane.distance = 10.0; // Move the plane away from the model
-            scene.renderForSpecs();
             expect(scene).toRenderAndCall(function (rgba) {
               expect(rgba).toEqual(modelColor);
             });
           }
         );
+      });
+
+      it("removing clipping plane from collection works", function () {
+        const plane = new ClippingPlane(Cartesian3.UNIT_X, -2.5);
+        const clippingPlanes = new ClippingPlaneCollection({
+          planes: [plane],
+        });
+        return loadAndZoomToModel(
+          { gltf: boxTexturedGlbUrl, clippingPlanes: clippingPlanes },
+          scene
+        ).then(function (model) {
+          verifyRender(model, false);
+
+          clippingPlanes.removeAll();
+          verifyRender(model, true);
+        });
+      });
+
+      it("removing clipping planes collection works", function () {
+        const plane = new ClippingPlane(Cartesian3.UNIT_X, -2.5);
+        const clippingPlanes = new ClippingPlaneCollection({
+          planes: [plane],
+        });
+        return loadAndZoomToModel(
+          { gltf: boxTexturedGlbUrl, clippingPlanes: clippingPlanes },
+          scene
+        ).then(function (model) {
+          verifyRender(model, false);
+
+          model.clippingPlanes = undefined;
+          verifyRender(model, true);
+        });
+      });
+
+      it("replacing clipping planes with another collection works", function () {
+        const modelClippedPlane = new ClippingPlane(Cartesian3.UNIT_X, -2.5);
+        const modelVisiblePlane = new ClippingPlane(Cartesian3.UNIT_X, 2.5);
+
+        const clippingPlanes = new ClippingPlaneCollection({
+          planes: [modelClippedPlane],
+        });
+
+        return loadAndZoomToModel(
+          { gltf: boxTexturedGlbUrl, clippingPlanes: clippingPlanes },
+          scene
+        ).then(function (model) {
+          verifyRender(model, false);
+
+          // Replace the clipping plane collection with one that makes the model visible.
+          model.clippingPlanes = new ClippingPlaneCollection({
+            planes: [modelVisiblePlane],
+          });
+          verifyRender(model, true);
+
+          // Replace the clipping plane collection with one that clips the model.
+          model.clippingPlanes = new ClippingPlaneCollection({
+            planes: [modelClippedPlane],
+          });
+          verifyRender(model, false);
+        });
       });
 
       it("clipping planes apply edge styling", function () {
@@ -3720,7 +3952,6 @@ describe(
         return loadAndZoomToModel({ gltf: boxTexturedGlbUrl }, scene).then(
           function (model) {
             let modelColor;
-            scene.renderForSpecs();
             verifyRender(model, true);
             expect(scene).toRenderAndCall(function (rgba) {
               modelColor = rgba;
@@ -3728,13 +3959,11 @@ describe(
 
             model.clippingPlanes = clippingPlanes;
 
-            scene.renderForSpecs();
             expect(scene).toRenderAndCall(function (rgba) {
               expect(rgba).toEqual([0, 0, 255, 255]);
             });
 
             clippingPlanes.edgeWidth = 0.0;
-            scene.renderForSpecs();
             expect(scene).toRenderAndCall(function (rgba) {
               expect(rgba).toEqual(modelColor);
             });
@@ -3752,16 +3981,13 @@ describe(
         });
         return loadAndZoomToModel({ gltf: boxTexturedGlbUrl }, scene).then(
           function (model) {
-            scene.renderForSpecs();
             verifyRender(model, true);
 
             // These planes are defined such that the model is outside their union.
             model.clippingPlanes = clippingPlanes;
-            scene.renderForSpecs();
             verifyRender(model, false);
 
             model.clippingPlanes.unionClippingRegions = false;
-            scene.renderForSpecs();
             verifyRender(model, true);
           }
         );

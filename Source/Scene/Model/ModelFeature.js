@@ -1,6 +1,5 @@
 import Color from "../../Core/Color.js";
 import defined from "../../Core/defined.js";
-import deprecationWarning from "../../Core/deprecationWarning.js";
 
 /**
  * A feature of a {@link Model}.
@@ -31,7 +30,7 @@ import deprecationWarning from "../../Core/deprecationWarning.js";
  * }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
  *
  */
-export default function ModelFeature(options) {
+function ModelFeature(options) {
   this._model = options.model;
 
   // This ModelFeatureTable is not documented as an option since it is
@@ -193,22 +192,6 @@ ModelFeature.prototype.getPropertyInherited = function (name) {
 };
 
 /**
- * Returns an array of property names for the feature.
- *
- * @deprecated
- *
- * @param {String[]} [results] An array into which to store the results.
- * @returns {String[]} The names of the feature's properties.
- */
-ModelFeature.prototype.getPropertyNames = function (results) {
-  deprecationWarning(
-    "ModelFeature.getPropertyNames",
-    "ModelFeature.getPropertyNames is deprecated in CesiumJS 1.95, and will be removed in 1.98. Use ModelFeature.getPropertyIds instead"
-  );
-  return this._featureTable.getPropertyIds(results);
-};
-
-/**
  * Returns an array of property IDs for the feature.
  *
  * @param {String[]} [results] An array into which to store the results.
@@ -242,3 +225,5 @@ ModelFeature.prototype.getPropertyIds = function (results) {
 ModelFeature.prototype.setProperty = function (name, value) {
   return this._featureTable.setProperty(this._featureId, name, value);
 };
+
+export default ModelFeature;
