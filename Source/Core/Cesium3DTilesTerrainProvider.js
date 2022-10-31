@@ -1,4 +1,3 @@
-// @ts-check
 import BoundingSphere from "./BoundingSphere.js";
 import Cesium3DTilesTerrainData from "./Cesium3DTilesTerrainData.js";
 import CesiumMath from "./Math.js";
@@ -22,6 +21,7 @@ import Resource from "./Resource.js";
 import TerrainProvider from "./TerrainProvider.js";
 
 /**
+ * @private
  * @param {Number} level The level of the tile
  * @param {Number} x The x coordinate of the tile
  * @returns {Number}
@@ -38,6 +38,7 @@ function getRootIdFromGeographic(level, x) {
 }
 
 /**
+ * @private
  * @param {ImplicitTileset} implicitTileset
  * @param {Number} level The level of the tile
  * @param {Number} x The x coordinate of the tile
@@ -76,6 +77,7 @@ function getImplicitTileCoordinatesFromGeographicCoordinates(
 }
 
 /**
+ * @private
  * @param {ImplicitTileset} implicitTileset
  * @param {Number} level The level of the tile
  * @param {Number} x The x coordinate of the tile
@@ -105,6 +107,7 @@ function getImplicitTileCoordinates(implicitTileset, level, x, y) {
 }
 
 /**
+ * @private
  * @param {ImplicitTileset} implicitTileset
  * @param {ImplicitTileCoordinates} subtreeCoord
  * @param {Number} u
@@ -142,6 +145,7 @@ function computeDescendantCoordinatesAtUv(
 }
 
 /**
+ * @private
  * @param {ImplicitTileset} implicitTileset
  * @param {ImplicitSubtree} subtree
  * @param {ImplicitTileCoordinates} coord
@@ -222,11 +226,15 @@ function Cesium3DTilesTerrainProvider(options) {
     provider: that,
   });
 
-  /** @type {ImplicitTileset} */
-  // @ts-ignore
+  /**
+   * @private
+   * @type {ImplicitTileset|undefined}
+   */
   this._tileset0 = undefined;
-  /** @type {ImplicitTileset} */
-  // @ts-ignore
+  /**
+   * @private
+   * @type {ImplicitTileset|undefined}
+   */
   this._tileset1 = undefined;
 
   /** @type {Resource} */
