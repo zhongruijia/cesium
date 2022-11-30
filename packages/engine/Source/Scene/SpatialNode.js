@@ -103,6 +103,33 @@ SpatialNode.prototype.computeBoundingVolumes = function (
 };
 
 /**
+ * Compute the [level, x, y, z] coordinates of the children of a node
+ * @returns {Array[]} Child coordinate arrays
+ * @private
+ */
+SpatialNode.prototype.getChildCoordinates = function () {
+  const { level, x, y, z } = this;
+  const xMin = x * 2;
+  const yMin = y * 2;
+  const zMin = z * 2;
+  const yMax = yMin + 1;
+  const xMax = xMin + 1;
+  const zMax = zMin + 1;
+  const childLevel = level + 1;
+
+  return [
+    [childLevel, xMin, yMin, zMin],
+    [childLevel, xMax, yMin, zMin],
+    [childLevel, xMin, yMax, zMin],
+    [childLevel, xMax, yMax, zMin],
+    [childLevel, xMin, yMin, zMax],
+    [childLevel, xMax, yMin, zMax],
+    [childLevel, xMin, yMax, zMax],
+    [childLevel, xMax, yMax, zMax],
+  ];
+};
+
+/**
  * @param {FrameState} frameState
  * @param {Number} visibilityPlaneMask
  * @returns {Number} A plane mask as described in {@link CullingVolume#computeVisibilityWithPlaneMask}.

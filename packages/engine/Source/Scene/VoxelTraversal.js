@@ -612,11 +612,10 @@ function loadAndUnload(that, frameState) {
     }
 
     if (!defined(spatialNode.children)) {
-      const childCoords = getChildCoords(spatialNode);
-      const childLevel = spatialNode.level + 1;
-      spatialNode.children = childCoords.map(([x, y, z]) => {
+      const childCoords = spatialNode.getChildCoordinates();
+      spatialNode.children = childCoords.map(([level, x, y, z]) => {
         return new SpatialNode(
-          childLevel,
+          level,
           x,
           y,
           z,
@@ -704,33 +703,6 @@ function loadAndUnload(that, frameState) {
       keyframeNodesInMegatexture[addNodeIndex] = highPriorityKeyframeNode;
     }
   }
-}
-
-/**
- * Compute the X, Y, Z coordinates of the children of a node
- * @param {SpatialNode} spatialNode The parent node
- * @returns {Array[]} Child coordinate arrays
- * @private
- */
-function getChildCoords(spatialNode) {
-  const { x, y, z } = spatialNode;
-  const xMin = x * 2;
-  const yMin = y * 2;
-  const zMin = z * 2;
-  const yMax = yMin + 1;
-  const xMax = xMin + 1;
-  const zMax = zMin + 1;
-
-  return [
-    [xMin, yMin, zMin],
-    [xMax, yMin, zMin],
-    [xMin, yMax, zMin],
-    [xMax, yMax, zMin],
-    [xMin, yMin, zMax],
-    [xMax, yMin, zMax],
-    [xMin, yMax, zMax],
-    [xMax, yMax, zMax],
-  ];
 }
 
 /**
