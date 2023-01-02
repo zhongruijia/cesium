@@ -523,6 +523,30 @@ function loadAndUnload(that, frameState) {
     frameState.context.drawingBufferHeight / frameState.pixelRatio;
   const screenSpaceErrorMultiplier = screenHeight / screenSpaceErrorDenominator;
 
+  function keyframePriority(previousKeyframe, keyframe, nextKeyframe) {
+    const keyframeDifference = Math.min(
+      Math.abs(keyframe - previousKeyframe),
+      Math.abs(keyframe - nextKeyframe)
+    );
+    const maxKeyframeDifference = Math.max(
+      previousKeyframe,
+      keyframeCount - nextKeyframe - 1,
+      1
+    );
+    const keyframeFactor = Math.pow(
+      1.0 - keyframeDifference / maxKeyframeDifference,
+      4.0
+    );
+    const binaryTreeFactor = Math.exp(
+      -that._binaryTreeKeyframeWeighting[keyframe]
+    );
+    return CesiumMath.lerp(
+      binaryTreeFactor,
+      keyframeFactor,
+      0.15 + 0.85 * keyframeFactor
+    );
+  }
+
   /**
    * @ignore
    * @param {SpatialNode} spatialNode
@@ -565,31 +589,10 @@ function loadAndUnload(that, frameState) {
     const keyframeNodes = spatialNode.keyframeNodes;
     for (let i = 0; i < keyframeNodes.length; i++) {
       const keyframeNode = keyframeNodes[i];
-      const keyframe = keyframeNode.keyframe;
 
-      // Balanced prioritization
-      const keyframeDifference = Math.min(
-        Math.abs(keyframe - previousKeyframe),
-        Math.abs(keyframe - nextKeyframe)
-      );
-      const maxKeyframeDifference = Math.max(
-        previousKeyframe,
-        keyframeCount - nextKeyframe - 1,
-        1
-      );
-      const keyframeFactor = Math.pow(
-        1.0 - keyframeDifference / maxKeyframeDifference,
-        4.0
-      );
-      const binaryTreeFactor = Math.exp(
-        -that._binaryTreeKeyframeWeighting[keyframe]
-      );
-      keyframeNode.priority = 10.0 * ssePriority;
-      keyframeNode.priority += CesiumMath.lerp(
-        binaryTreeFactor,
-        keyframeFactor,
-        0.15 + 0.85 * keyframeFactor
-      );
+      keyframeNode.priority =
+        10.0 * ssePriority +
+        keyframePriority(previousKeyframe, keyframeNode.keyframe, nextKeyframe);
 
       if (
         keyframeNode.state !== KeyframeNode.LoadState.UNAVAILABLE &&

@@ -200,66 +200,43 @@ SpatialNode.prototype.computeSurroundingRenderableKeyframeNodes = function (
   let minimumDistanceNext = +Number.MAX_VALUE;
 
   while (defined(spatialNode)) {
-    const renderableKeyframeNodes = spatialNode.renderableKeyframeNodes;
+    const { renderableKeyframeNodes } = spatialNode;
 
     if (renderableKeyframeNodes.length >= 1) {
-      let keyframeNodeIndexPrev = findKeyframeIndex(
+      const indexPrev = getKeyframeIndexPrev(
         targetKeyframePrev,
         renderableKeyframeNodes
       );
-      if (keyframeNodeIndexPrev < 0) {
-        keyframeNodeIndexPrev = CesiumMath.clamp(
-          ~keyframeNodeIndexPrev - 1,
-          0,
-          renderableKeyframeNodes.length - 1
-        );
-      }
-      const keyframeNodePrev = renderableKeyframeNodes[keyframeNodeIndexPrev];
-      const keyframePrev = keyframeNodePrev.keyframe;
+      const keyframeNodePrev = renderableKeyframeNodes[indexPrev];
 
-      let keyframeNodeNext;
-      if (
+      const indexNext =
         targetKeyframeNext === targetKeyframePrev ||
-        targetKeyframePrev < keyframePrev
-      ) {
-        keyframeNodeNext = keyframeNodePrev;
-      } else {
-        const keyframeNodeIndexNext = Math.min(
-          keyframeNodeIndexPrev + 1,
-          renderableKeyframeNodes.length - 1
-        );
-        keyframeNodeNext = renderableKeyframeNodes[keyframeNodeIndexNext];
-      }
-      const keyframeNext = keyframeNodeNext.keyframe;
+        targetKeyframePrev < keyframeNodePrev.keyframe
+          ? indexPrev
+          : Math.min(indexPrev + 1, renderableKeyframeNodes.length - 1);
+      const keyframeNodeNext = renderableKeyframeNodes[indexNext];
 
-      const keyframeDistancePrev = targetKeyframePrev - keyframePrev;
-      const keyframeDistanceNext = keyframeNext - targetKeyframeNext;
-      const levelDistance = startLevel - spatialNode.level;
-
-      // Balance temporal and visual quality
-      const levelWeight = Math.exp(levelDistance * 4.0);
-      const normalKeyframeWeight = 1.0;
-      const reverseKeyframeWeight = 200.0; // Keyframes on the opposite of the desired direction are deprioritized.
-      const distancePrev =
-        levelDistance * levelWeight +
-        (keyframeDistancePrev >= 0
-          ? keyframeDistancePrev * normalKeyframeWeight
-          : -keyframeDistancePrev * reverseKeyframeWeight);
-      const distanceNext =
-        levelDistance * levelWeight +
-        (keyframeDistanceNext >= 0
-          ? keyframeDistanceNext * normalKeyframeWeight
-          : -keyframeDistanceNext * reverseKeyframeWeight);
-
-      if (distancePrev < minimumDistancePrev) {
-        minimumDistancePrev = distancePrev;
+      const distancePrev = targetKeyframePrev - keyframeNodePrev.keyframe;
+      const weightedDistancePrev = getWeightedKeyframeDistance(
+        startLevel - spatialNode.level,
+        distancePrev
+      );
+      if (weightedDistancePrev < minimumDistancePrev) {
+        minimumDistancePrev = weightedDistancePrev;
         bestKeyframeNodePrev = keyframeNodePrev;
       }
-      if (distanceNext < minimumDistanceNext) {
-        minimumDistanceNext = distanceNext;
+
+      const distanceNext = keyframeNodeNext.keyframe - targetKeyframeNext;
+      const weightedDistanceNext = getWeightedKeyframeDistance(
+        startLevel - spatialNode.level,
+        distanceNext
+      );
+      if (weightedDistanceNext < minimumDistanceNext) {
+        minimumDistanceNext = weightedDistanceNext;
         bestKeyframeNodeNext = keyframeNodeNext;
       }
-      if (keyframeDistancePrev === 0 && keyframeDistanceNext === 0) {
+
+      if (distancePrev === 0 && distanceNext === 0) {
         // Nothing higher up will be better, so break early.
         break;
       }
@@ -270,20 +247,38 @@ SpatialNode.prototype.computeSurroundingRenderableKeyframeNodes = function (
 
   this.renderableKeyframeNodePrevious = bestKeyframeNodePrev;
   this.renderableKeyframeNodeNext = bestKeyframeNodeNext;
-  if (defined(bestKeyframeNodePrev) && defined(bestKeyframeNodeNext)) {
-    const bestKeyframePrev = bestKeyframeNodePrev.keyframe;
-    const bestKeyframeNext = bestKeyframeNodeNext.keyframe;
-    this.renderableKeyframeNodeLerp =
-      bestKeyframePrev === bestKeyframeNext
-        ? 0.0
-        : CesiumMath.clamp(
-            (keyframeLocation - bestKeyframePrev) /
-              (bestKeyframeNext - bestKeyframePrev),
-            0.0,
-            1.0
-          );
+
+  if (!defined(bestKeyframeNodePrev) || !defined(bestKeyframeNodeNext)) {
+    return;
   }
+
+  const bestKeyframePrev = bestKeyframeNodePrev.keyframe;
+  const bestKeyframeNext = bestKeyframeNodeNext.keyframe;
+  this.renderableKeyframeNodeLerp =
+    bestKeyframePrev === bestKeyframeNext
+      ? 0.0
+      : CesiumMath.clamp(
+          (keyframeLocation - bestKeyframePrev) /
+            (bestKeyframeNext - bestKeyframePrev),
+          0.0,
+          1.0
+        );
 };
+
+function getKeyframeIndexPrev(targetKeyframe, keyframeNodes) {
+  const keyframeIndex = findKeyframeIndex(targetKeyframe, keyframeNodes);
+  return keyframeIndex < 0
+    ? CesiumMath.clamp(~keyframeIndex - 1, 0, keyframeNodes.length - 1)
+    : keyframeIndex;
+}
+
+function getWeightedKeyframeDistance(levelDistance, keyframeDistance) {
+  // Balance quality between visual (levelDistance) and temporal (keyframeDistance)
+  const levelWeight = Math.exp(levelDistance * 4.0);
+  // Keyframes on the opposite of the desired direction are deprioritized.
+  const keyframeWeight = keyframeDistance >= 0 ? 1.0 : -200.0;
+  return levelDistance * levelWeight + keyframeDistance * keyframeWeight;
+}
 
 /**
  * @param {Number} frameNumber
