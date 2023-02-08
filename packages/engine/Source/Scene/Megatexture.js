@@ -42,35 +42,15 @@ function Megatexture(
     componentType = MetadataComponentType.FLOAT32;
   }
 
-  const supportsFloatingPointTexture = context.floatingPointTexture;
   if (
     componentType === MetadataComponentType.FLOAT32 &&
-    !supportsFloatingPointTexture
+    !context.floatingPointTexture
   ) {
     throw new RuntimeError("Floating point texture not supported");
   }
 
-  // TODO support more
-  let pixelType;
-  if (
-    componentType === MetadataComponentType.FLOAT32 ||
-    componentType === MetadataComponentType.FLOAT64
-  ) {
-    pixelType = PixelDatatype.FLOAT;
-  } else if (componentType === MetadataComponentType.UINT8) {
-    pixelType = PixelDatatype.UNSIGNED_BYTE;
-  }
-
-  let pixelFormat;
-  if (channelCount === 1) {
-    pixelFormat = context.webgl2 ? PixelFormat.RED : PixelFormat.LUMINANCE;
-  } else if (channelCount === 2) {
-    pixelFormat = context.webgl2 ? PixelFormat.RG : PixelFormat.LUMINANCE_ALPHA;
-  } else if (channelCount === 3) {
-    pixelFormat = PixelFormat.RGB;
-  } else if (channelCount === 4) {
-    pixelFormat = PixelFormat.RGBA;
-  }
+  const pixelType = getPixelDataType(componentType);
+  const pixelFormat = getPixelFormat(channelCount, context.webgl2);
 
   const maximumTextureMemoryByteLength = 512 * 1024 * 1024;
   const defaultTextureMemoryByteLength = 128 * 1024 * 1024;
@@ -78,15 +58,11 @@ function Megatexture(
     defaultValue(textureMemoryByteLength, defaultTextureMemoryByteLength),
     maximumTextureMemoryByteLength
   );
-  const maximumTextureDimensionContext = ContextLimits.maximumTextureSize;
-  const componentTypeByteLength = MetadataComponentType.getSizeInBytes(
-    componentType
-  );
-  const texelCount = Math.floor(
-    textureMemoryByteLength / (channelCount * componentTypeByteLength)
-  );
+  const pixelSizeInBytes =
+    MetadataComponentType.getSizeInBytes(componentType) * channelCount;
+  const texelCount = Math.floor(textureMemoryByteLength / pixelSizeInBytes);
   const textureDimension = Math.min(
-    maximumTextureDimensionContext,
+    ContextLimits.maximumTextureSize,
     CesiumMath.previousPowerOfTwo(Math.floor(Math.sqrt(texelCount)))
   );
 
@@ -252,6 +228,41 @@ function Megatexture(
 }
 
 /**
+ * @private
+ * @param {Number} channelCount The number of channels
+ * @param {Boolean} webgl2 true if the rendering context is WebGL2
+ * @returns {PixelFormat}
+ */
+function getPixelFormat(channelCount, webgl2) {
+  switch (channelCount) {
+    case 1:
+      return webgl2 ? PixelFormat.RED : PixelFormat.LUMINANCE;
+    case 2:
+      return webgl2 ? PixelFormat.RG : PixelFormat.LUMINANCE_ALPHA;
+    case 3:
+      return PixelFormat.RGB;
+    case 4:
+      return PixelFormat.RGBA;
+  }
+}
+
+/**
+ * @private
+ * @param {MetadataComponentType} componentType
+ * @returns {PixelDataType}
+ */
+function getPixelDataType(componentType) {
+  // TODO support more
+  switch (componentType) {
+    case MetadataComponentType.FLOAT32:
+    case MetadataComponentType.FLOAT64:
+      return PixelDatatype.FLOAT;
+    case MetadataComponentType.UINT8:
+      return PixelDatatype.UNSIGNED_BYTE;
+  }
+}
+
+/**
  * @alias MegatextureNode
  * @constructor
  *
@@ -360,9 +371,6 @@ Megatexture.getApproximateTextureMemoryByteLength = function (
     componentType = MetadataComponentType.FLOAT32;
   }
 
-  const datatypeSizeInBytes = MetadataComponentType.getSizeInBytes(
-    componentType
-  );
   const voxelCountTotal =
     tileCount * dimensions.x * dimensions.y * dimensions.z;
 
@@ -387,9 +395,10 @@ Megatexture.getApproximateTextureMemoryByteLength = function (
     }
   }
 
-  const textureMemoryByteLength =
-    textureDimension * textureDimension * channelCount * datatypeSizeInBytes;
-  return textureMemoryByteLength;
+  const pixelSizeInBytes =
+    MetadataComponentType.getSizeInBytes(componentType) * channelCount;
+
+  return pixelSizeInBytes * textureDimension ** 2;
 };
 
 /**
@@ -401,47 +410,42 @@ Megatexture.prototype.writeDataToTexture = function (index, data) {
   const tileData =
     data.constructor === Uint16Array ? new Float32Array(data) : data;
 
-  const voxelDimensionsPerTile = this.voxelCountPerTile;
-  const sliceDimensionsPerRegion = this.sliceCountPerRegion;
-  const voxelDimensionsPerRegion = this.voxelCountPerRegion;
-  const channelCount = this.channelCount;
+  const {
+    voxelCountPerTile,
+    sliceCountPerRegion,
+    voxelCountPerRegion,
+    channelCount,
+    tileVoxelDataTemp,
+    regionCountPerMegatexture,
+  } = this;
 
-  const tileVoxelData = this.tileVoxelDataTemp;
-  for (let z = 0; z < voxelDimensionsPerTile.z; z++) {
-    const sliceVoxelOffsetX =
-      (z % sliceDimensionsPerRegion.x) * voxelDimensionsPerTile.x;
+  for (let z = 0; z < voxelCountPerTile.z; z++) {
+    const sliceVoxelOffsetX = (z % sliceCountPerRegion.x) * voxelCountPerTile.x;
     const sliceVoxelOffsetY =
-      Math.floor(z / sliceDimensionsPerRegion.x) * voxelDimensionsPerTile.y;
-    for (let y = 0; y < voxelDimensionsPerTile.y; y++) {
-      for (let x = 0; x < voxelDimensionsPerTile.x; x++) {
-        const readIndex =
-          z * voxelDimensionsPerTile.y * voxelDimensionsPerTile.x +
-          y * voxelDimensionsPerTile.x +
-          x;
-        const writeIndex =
-          (sliceVoxelOffsetY + y) * voxelDimensionsPerRegion.x +
-          (sliceVoxelOffsetX + x);
+      Math.floor(z / sliceCountPerRegion.x) * voxelCountPerTile.y;
+    const readOffsetZ = z * voxelCountPerTile.y * voxelCountPerTile.x;
+    for (let y = 0; y < voxelCountPerTile.y; y++) {
+      const writeOffsetY = (sliceVoxelOffsetY + y) * voxelCountPerRegion.x;
+      for (let x = 0; x < voxelCountPerTile.x; x++) {
+        const readIndex = readOffsetZ + y * voxelCountPerTile.x + x;
+        const writeIndex = writeOffsetY + sliceVoxelOffsetX + x;
         for (let c = 0; c < channelCount; c++) {
-          tileVoxelData[writeIndex * channelCount + c] =
+          tileVoxelDataTemp[writeIndex * channelCount + c] =
             tileData[readIndex * channelCount + c];
         }
       }
     }
   }
 
-  const regionDimensionsPerMegatexture = this.regionCountPerMegatexture;
-  const voxelWidth = voxelDimensionsPerRegion.x;
-  const voxelHeight = voxelDimensionsPerRegion.y;
   const voxelOffsetX =
-    (index % regionDimensionsPerMegatexture.x) * voxelDimensionsPerRegion.x;
+    (index % regionCountPerMegatexture.x) * voxelCountPerRegion.x;
   const voxelOffsetY =
-    Math.floor(index / regionDimensionsPerMegatexture.x) *
-    voxelDimensionsPerRegion.y;
+    Math.floor(index / regionCountPerMegatexture.x) * voxelCountPerRegion.y;
 
   const source = {
-    arrayBufferView: tileVoxelData,
-    width: voxelWidth,
-    height: voxelHeight,
+    arrayBufferView: tileVoxelDataTemp,
+    width: voxelCountPerRegion.x,
+    height: voxelCountPerRegion.y,
   };
 
   const copyOptions = {
