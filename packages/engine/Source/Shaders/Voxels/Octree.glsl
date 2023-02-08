@@ -49,8 +49,8 @@ float normU8x2_toFloat(in vec2 value) {
 }
 
 OctreeNodeData getOctreeNodeData(in vec2 octreeUv) {
-    vec4 texData = texture2D(u_octreeInternalNodeTexture, octreeUv);
-    
+    vec4 texData = texture(u_octreeInternalNodeTexture, octreeUv);
+
     OctreeNodeData data;
     data.data = normU8x2_toInt(texData.xy);
     data.flag = normU8x2_toInt(texData.zw);
@@ -69,7 +69,7 @@ int getOctreeParentIndex(in int octreeIndex) {
     int octreeCoordX = intMod(octreeIndex, u_octreeInternalNodeTilesPerRow) * 9;
     int octreeCoordY = octreeIndex / u_octreeInternalNodeTilesPerRow;
     vec2 octreeUv = u_octreeInternalNodeTexelSizeUv * vec2(float(octreeCoordX) + 0.5, float(octreeCoordY) + 0.5);
-    vec4 parentData = texture2D(u_octreeInternalNodeTexture, octreeUv);
+    vec4 parentData = texture(u_octreeInternalNodeTexture, octreeUv);
     int parentOctreeIndex = normU8x2_toInt(parentData.xy);
     return parentOctreeIndex;
 }
@@ -106,8 +106,8 @@ void getOctreeLeafSampleDatas(in OctreeNodeData data, out SampleData sampleData0
 
     vec2 leafUv0 = u_octreeLeafNodeTexelSizeUv * vec2(leafCoordXStart + 0.0, leafCoordY);
     vec2 leafUv1 = u_octreeLeafNodeTexelSizeUv * vec2(leafCoordXStart + 1.0, leafCoordY);
-    vec4 leafData0 = texture2D(u_octreeLeafNodeTexture, leafUv0);
-    vec4 leafData1 = texture2D(u_octreeLeafNodeTexture, leafUv1);
+    vec4 leafData0 = texture(u_octreeLeafNodeTexture, leafUv0);
+    vec4 leafData1 = texture(u_octreeLeafNodeTexture, leafUv1);
 
     float lerp = normU8x2_toFloat(leafData0.xy);
 
@@ -207,7 +207,7 @@ void traverseOctreeFromExisting(in vec3 shapePosition, inout TraversalData trave
         {
             traversalData.octreeCoords.xyz /= 2;
             traversalData.octreeCoords.w -= 1;
-            
+
             if (!insideTile(shapePosition, traversalData.octreeCoords)) {
                 traversalData.parentOctreeIndex = getOctreeParentIndex(traversalData.parentOctreeIndex);
             } else {
@@ -219,5 +219,3 @@ void traverseOctreeFromExisting(in vec3 shapePosition, inout TraversalData trave
         traverseOctreeDownwards(shapePosition, traversalData, sampleDatas);
     }
 }
-
-// export { SampleData, traverseOctreeFromBeginning, traverseOctreeFromExisting };

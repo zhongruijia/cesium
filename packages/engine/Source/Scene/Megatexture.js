@@ -1,5 +1,6 @@
 import Cartesian2 from "../Core/Cartesian2.js";
 import Cartesian3 from "../Core/Cartesian3.js";
+import ComponentDatatype from "../Core/ComponentDatatype.js";
 import ContextLimits from "../Renderer/ContextLimits.js";
 import defaultValue from "../Core/defaultValue.js";
 import defined from "../Core/defined.js";
@@ -62,9 +63,9 @@ function Megatexture(
 
   let pixelFormat;
   if (channelCount === 1) {
-    pixelFormat = PixelFormat.LUMINANCE;
+    pixelFormat = context.webgl2 ? PixelFormat.RED : PixelFormat.LUMINANCE;
   } else if (channelCount === 2) {
-    pixelFormat = PixelFormat.LUMINANCE_ALPHA;
+    pixelFormat = context.webgl2 ? PixelFormat.RG : PixelFormat.LUMINANCE_ALPHA;
   } else if (channelCount === 3) {
     pixelFormat = PixelFormat.RGB;
   } else if (channelCount === 4) {
@@ -202,12 +203,15 @@ function Megatexture(
     }),
   });
 
-  const ArrayType = MetadataComponentType.toTypedArrayType(componentType);
+  const componentDatatype = MetadataComponentType.toComponentDatatype(
+    componentType
+  );
 
   /**
    * @type {Array}
    */
-  this.tileVoxelDataTemp = new ArrayType(
+  this.tileVoxelDataTemp = ComponentDatatype.createTypedArray(
+    componentDatatype,
     voxelCountPerRegionX * voxelCountPerRegionY * channelCount
   );
 

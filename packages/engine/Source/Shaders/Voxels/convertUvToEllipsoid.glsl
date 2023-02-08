@@ -1,16 +1,13 @@
-/* Ellipsoid defines:
-#define ELLIPSOID_HAS_RENDER_BOUNDS_LONGITUDE_RANGE_EQUAL_ZERO
+/* Ellipsoid defines (set in Scene/VoxelEllipsoidShape.js)
 #define ELLIPSOID_HAS_RENDER_BOUNDS_LONGITUDE_MIN_DISCONTINUITY
 #define ELLIPSOID_HAS_RENDER_BOUNDS_LONGITUDE_MAX_DISCONTINUITY
 #define ELLIPSOID_HAS_SHAPE_BOUNDS_LONGITUDE
 #define ELLIPSOID_HAS_SHAPE_BOUNDS_LONGITUDE_RANGE_EQUAL_ZERO
 #define ELLIPSOID_HAS_SHAPE_BOUNDS_LONGITUDE_MIN_MAX_REVERSED
-#define ELLIPSOID_HAS_RENDER_BOUNDS_LATITUDE_RANGE_EQUAL_ZERO
 #define ELLIPSOID_HAS_SHAPE_BOUNDS_LATITUDE
 #define ELLIPSOID_HAS_SHAPE_BOUNDS_LATITUDE_RANGE_EQUAL_ZERO
-#define ELLIPSOID_HAS_RENDER_BOUNDS_HEIGHT_RANGE_EQUAL_ZERO
 #define ELLIPSOID_HAS_SHAPE_BOUNDS_HEIGHT_MIN
-#define ELLIPSOID_HAS_SHAPE_BOUNDS_HEIGHT_RANGE_EQUAL_ZERO
+#define ELLIPSOID_HAS_SHAPE_BOUNDS_HEIGHT_FLAT
 #define ELLIPSOID_IS_SPHERE
 */
 
@@ -27,7 +24,7 @@ uniform vec3 u_ellipsoidRadiiUv; // [0,1]
 #if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_LATITUDE)
     uniform vec2 u_ellipsoidUvToShapeUvLatitude; // x = scale, y = offset
 #endif
-#if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_HEIGHT_MIN) && !defined(ELLIPSOID_HAS_SHAPE_BOUNDS_HEIGHT_RANGE_EQUAL_ZERO)
+#if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_HEIGHT_MIN) && !defined(ELLIPSOID_HAS_SHAPE_BOUNDS_HEIGHT_FLAT)
     uniform float u_ellipsoidInverseHeightDifferenceUv;
     uniform vec2 u_ellipseInnerRadiiUv; // [0,1]
 #endif
@@ -67,13 +64,13 @@ vec3 convertUvToShapeUvSpace(in vec3 positionUv) {
         vec3 posEllipsoid = positionLocal * u_ellipsoidRadiiUv;
         vec3 normal = normalize(posEllipsoid * u_ellipsoidInverseRadiiSquaredUv); // geodetic surface normal
     #endif
-    
+
     // Compute longitude
-    #if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_LONGITUDE_RANGE_EQUAL_ZERO) || defined(ELLIPSOID_HAS_RENDER_BOUNDS_LONGITUDE_RANGE_EQUAL_ZERO)
+    #if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_LONGITUDE_RANGE_EQUAL_ZERO)
         float longitude = 1.0;
     #else
         float longitude = (atan(normal.y, normal.x) + czm_pi) / czm_twoPi;
-        
+
         // Correct the angle when max < min
         // Technically this should compare against min longitude - but it has precision problems so compare against the middle of empty space.
         #if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_LONGITUDE_MIN_MAX_REVERSED)
@@ -94,7 +91,7 @@ vec3 convertUvToShapeUvSpace(in vec3 positionUv) {
     #endif
 
     // Compute latitude
-    #if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_LATITUDE_RANGE_EQUAL_ZERO) || defined(ELLIPSOID_HAS_RENDER_BOUNDS_LATITUDE_RANGE_EQUAL_ZERO)
+    #if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_LATITUDE_RANGE_EQUAL_ZERO)
         float latitude = 1.0;
     #else
         float latitude = (asin(normal.z) + czm_piOverTwo) / czm_pi;
@@ -104,7 +101,7 @@ vec3 convertUvToShapeUvSpace(in vec3 positionUv) {
     #endif
 
     // Compute height
-    #if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_HEIGHT_RANGE_EQUAL_ZERO) || defined(ELLIPSOID_HAS_RENDER_BOUNDS_HEIGHT_RANGE_EQUAL_ZERO)
+    #if defined(ELLIPSOID_HAS_SHAPE_BOUNDS_HEIGHT_FLAT)
         // TODO: This breaks down when minBounds == maxBounds. To fix it, this
         // function would have to know if ray is intersecting the front or back of the shape
         // and set the shape space position to 1 (front) or 0 (back) accordingly.
@@ -131,5 +128,3 @@ vec3 convertUvToShapeUvSpace(in vec3 positionUv) {
 
     return vec3(longitude, latitude, height);
 }
-
-// export { convertUvToShapeUvSpace };
