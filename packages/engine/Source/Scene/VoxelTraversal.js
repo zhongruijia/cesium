@@ -504,6 +504,30 @@ function loadAndUnload(that, frameState) {
   const screenHeight = context.drawingBufferHeight / pixelRatio;
   const screenSpaceErrorMultiplier = screenHeight / frustum.sseDenominator;
 
+  function keyframePriority(previousKeyframe, keyframe, nextKeyframe) {
+    const keyframeDifference = Math.min(
+      Math.abs(keyframe - previousKeyframe),
+      Math.abs(keyframe - nextKeyframe)
+    );
+    const maxKeyframeDifference = Math.max(
+      previousKeyframe,
+      keyframeCount - nextKeyframe - 1,
+      1
+    );
+    const keyframeFactor = Math.pow(
+      1.0 - keyframeDifference / maxKeyframeDifference,
+      4.0
+    );
+    const binaryTreeFactor = Math.exp(
+      -that._binaryTreeKeyframeWeighting[keyframe]
+    );
+    return CesiumMath.lerp(
+      binaryTreeFactor,
+      keyframeFactor,
+      0.15 + 0.85 * keyframeFactor
+    );
+  }
+
   /**
    * @ignore
    * @param {SpatialNode} spatialNode
@@ -543,31 +567,10 @@ function loadAndUnload(that, frameState) {
     const keyframeNodes = spatialNode.keyframeNodes;
     for (let i = 0; i < keyframeNodes.length; i++) {
       const keyframeNode = keyframeNodes[i];
-      const keyframe = keyframeNode.keyframe;
 
-      // Balanced prioritization
-      const keyframeDifference = Math.min(
-        Math.abs(keyframe - previousKeyframe),
-        Math.abs(keyframe - nextKeyframe)
-      );
-      const maxKeyframeDifference = Math.max(
-        previousKeyframe,
-        keyframeCount - nextKeyframe - 1,
-        1
-      );
-      const keyframeFactor = Math.pow(
-        1.0 - keyframeDifference / maxKeyframeDifference,
-        4.0
-      );
-      const binaryTreeFactor = Math.exp(
-        -that._binaryTreeKeyframeWeighting[keyframe]
-      );
-      keyframeNode.priority = 10.0 * ssePriority;
-      keyframeNode.priority += CesiumMath.lerp(
-        binaryTreeFactor,
-        keyframeFactor,
-        0.15 + 0.85 * keyframeFactor
-      );
+      keyframeNode.priority =
+        10.0 * ssePriority +
+        keyframePriority(previousKeyframe, keyframeNode.keyframe, nextKeyframe);
 
       if (
         keyframeNode.state !== KeyframeNode.LoadState.UNAVAILABLE &&
@@ -590,11 +593,10 @@ function loadAndUnload(that, frameState) {
     }
 
     if (!defined(spatialNode.children)) {
-      const childCoords = getChildCoords(spatialNode);
-      const childLevel = spatialNode.level + 1;
-      spatialNode.children = childCoords.map(([x, y, z]) => {
+      const childCoords = spatialNode.getChildCoordinates();
+      spatialNode.children = childCoords.map(([level, x, y, z]) => {
         return new SpatialNode(
-          childLevel,
+          level,
           x,
           y,
           z,
@@ -682,33 +684,6 @@ function loadAndUnload(that, frameState) {
       keyframeNodesInMegatexture[addNodeIndex] = highPriorityKeyframeNode;
     }
   }
-}
-
-/**
- * Compute the X, Y, Z coordinates of the children of a node
- * @param {SpatialNode} spatialNode The parent node
- * @returns {Array[]} Child coordinate arrays
- * @private
- */
-function getChildCoords(spatialNode) {
-  const { x, y, z } = spatialNode;
-  const xMin = x * 2;
-  const yMin = y * 2;
-  const zMin = z * 2;
-  const yMax = yMin + 1;
-  const xMax = xMin + 1;
-  const zMax = zMin + 1;
-
-  return [
-    [xMin, yMin, zMin],
-    [xMax, yMin, zMin],
-    [xMin, yMax, zMin],
-    [xMax, yMax, zMin],
-    [xMin, yMin, zMax],
-    [xMax, yMin, zMax],
-    [xMin, yMax, zMax],
-    [xMax, yMax, zMax],
-  ];
 }
 
 /**
