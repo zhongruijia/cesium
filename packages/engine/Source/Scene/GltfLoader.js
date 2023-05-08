@@ -30,29 +30,31 @@ import ResourceLoader from "./ResourceLoader.js";
 import SupportedImageFormats from "./SupportedImageFormats.js";
 import VertexAttributeSemantic from "./VertexAttributeSemantic.js";
 
-const Attribute = ModelComponents.Attribute;
-const Indices = ModelComponents.Indices;
-const FeatureIdAttribute = ModelComponents.FeatureIdAttribute;
-const FeatureIdTexture = ModelComponents.FeatureIdTexture;
-const FeatureIdImplicitRange = ModelComponents.FeatureIdImplicitRange;
-const MorphTarget = ModelComponents.MorphTarget;
-const Primitive = ModelComponents.Primitive;
-const Instances = ModelComponents.Instances;
-const Skin = ModelComponents.Skin;
-const Node = ModelComponents.Node;
-const AnimatedPropertyType = ModelComponents.AnimatedPropertyType;
-const AnimationSampler = ModelComponents.AnimationSampler;
-const AnimationTarget = ModelComponents.AnimationTarget;
-const AnimationChannel = ModelComponents.AnimationChannel;
-const Animation = ModelComponents.Animation;
-const ArticulationStage = ModelComponents.ArticulationStage;
-const Articulation = ModelComponents.Articulation;
-const Asset = ModelComponents.Asset;
-const Scene = ModelComponents.Scene;
-const Components = ModelComponents.Components;
-const MetallicRoughness = ModelComponents.MetallicRoughness;
-const SpecularGlossiness = ModelComponents.SpecularGlossiness;
-const Material = ModelComponents.Material;
+const {
+  Attribute,
+  Indices,
+  FeatureIdAttribute,
+  FeatureIdTexture,
+  FeatureIdImplicitRange,
+  MorphTarget,
+  Primitive,
+  Instances,
+  Skin,
+  Node,
+  AnimatedPropertyType,
+  AnimationSampler,
+  AnimationTarget,
+  AnimationChannel,
+  Animation,
+  ArticulationStage,
+  Articulation,
+  Asset,
+  Scene,
+  Components,
+  MetallicRoughness,
+  SpecularGlossiness,
+  Material,
+} = ModelComponents;
 
 /**
  * States of the glTF loading process. These states also apply to
@@ -457,11 +459,9 @@ function handleError(gltfLoader, error) {
 }
 
 function processLoaders(loader, frameState) {
-  let i;
   let ready = true;
   const geometryLoaders = loader._geometryLoaders;
-  const geometryLoadersLength = geometryLoaders.length;
-  for (i = 0; i < geometryLoadersLength; ++i) {
+  for (let i = 0; i < geometryLoaders.length; ++i) {
     const geometryReady = geometryLoaders[i].process(frameState);
     if (geometryReady && defined(loader._geometryCallbacks[i])) {
       loader._geometryCallbacks[i]();
@@ -490,8 +490,7 @@ function postProcessGeometry(loader, context) {
   // Apply post-processing steps on geometry such as
   // updating attributes for rendering outlines.
   const loadPlans = loader._primitiveLoadPlans;
-  const length = loadPlans.length;
-  for (let i = 0; i < length; i++) {
+  for (let i = 0; i < loadPlans.length; i++) {
     const loadPlan = loadPlans[i];
     loadPlan.postProcess(context);
 
@@ -517,8 +516,7 @@ function gatherPostProcessBuffers(loader, primitiveLoadPlan) {
   // to do post-processing, all the attributes are loaded as typed arrays
   // so if a buffer exists, it was newly generated
   const attributes = primitive.attributes;
-  const length = attributes.length;
-  for (let i = 0; i < length; i++) {
+  for (let i = 0; i < attributes.length; i++) {
     const attribute = attributes[i];
     if (defined(attribute.buffer)) {
       buffers.push(attribute.buffer);
@@ -580,11 +578,9 @@ GltfLoader.prototype._processTextures = function (frameState) {
     return false;
   }
 
-  let i;
   let ready = true;
   const textureLoaders = this._textureLoaders;
-  const textureLoadersLength = textureLoaders.length;
-  for (i = 0; i < textureLoadersLength; ++i) {
+  for (let i = 0; i < textureLoaders.length; ++i) {
     const textureReady = textureLoaders[i].process(frameState);
     if (textureReady && defined(this._textureCallbacks[i])) {
       this._textureCallbacks[i]();
@@ -670,73 +666,6 @@ GltfLoader.prototype.process = function (frameState) {
 
   return ready && texturesReady;
 };
-
-function getVertexBufferLoader(
-  loader,
-  gltf,
-  accessorId,
-  semantic,
-  draco,
-  loadBuffer,
-  loadTypedArray,
-  frameState
-) {
-  const accessor = gltf.accessors[accessorId];
-  const bufferViewId = accessor.bufferView;
-
-  const vertexBufferLoader = ResourceCache.getVertexBufferLoader({
-    gltf: gltf,
-    gltfResource: loader._gltfResource,
-    baseResource: loader._baseResource,
-    frameState: frameState,
-    bufferViewId: bufferViewId,
-    draco: draco,
-    attributeSemantic: semantic,
-    accessorId: accessorId,
-    asynchronous: loader._asynchronous,
-    loadBuffer: loadBuffer,
-    loadTypedArray: loadTypedArray,
-  });
-
-  return vertexBufferLoader;
-}
-
-function getIndexBufferLoader(
-  loader,
-  gltf,
-  accessorId,
-  draco,
-  loadBuffer,
-  loadTypedArray,
-  frameState
-) {
-  const indexBufferLoader = ResourceCache.getIndexBufferLoader({
-    gltf: gltf,
-    accessorId: accessorId,
-    gltfResource: loader._gltfResource,
-    baseResource: loader._baseResource,
-    frameState: frameState,
-    draco: draco,
-    asynchronous: loader._asynchronous,
-    loadBuffer: loadBuffer,
-    loadTypedArray: loadTypedArray,
-  });
-
-  return indexBufferLoader;
-}
-
-function getBufferViewLoader(loader, gltf, bufferViewId) {
-  const bufferViewLoader = ResourceCache.getBufferViewLoader({
-    gltf: gltf,
-    bufferViewId: bufferViewId,
-    gltfResource: loader._gltfResource,
-    baseResource: loader._baseResource,
-  });
-
-  loader._bufferViewLoaders.push(bufferViewLoader);
-
-  return bufferViewLoader;
-}
 
 function getPackedTypedArray(gltf, accessor, bufferViewTypedArray) {
   let byteOffset = accessor.byteOffset;
@@ -848,22 +777,29 @@ function loadAccessor(loader, gltf, accessorId, useQuaternion) {
   const values = new Array(accessorCount);
 
   const bufferViewId = accessor.bufferView;
-  if (defined(bufferViewId)) {
-    const bufferViewLoader = getBufferViewLoader(loader, gltf, bufferViewId);
-    const promise = loadAccessorBufferView(
-      loader,
-      bufferViewLoader,
-      gltf,
-      accessor,
-      useQuaternion,
-      values
-    );
-    loader._loaderPromises.push(promise);
-
-    return values;
+  if (!defined(bufferViewId)) {
+    return loadDefaultAccessorValues(accessor, values);
   }
 
-  return loadDefaultAccessorValues(accessor, values);
+  const bufferViewLoader = ResourceCache.getBufferViewLoader({
+    gltf: gltf,
+    bufferViewId: bufferViewId,
+    gltfResource: loader._gltfResource,
+    baseResource: loader._baseResource,
+  });
+  loader._bufferViewLoaders.push(bufferViewLoader);
+
+  const promise = loadAccessorBufferView(
+    loader,
+    bufferViewLoader,
+    gltf,
+    accessor,
+    useQuaternion,
+    values
+  );
+  loader._loaderPromises.push(promise);
+
+  return values;
 }
 
 function fromArray(MathType, values) {
@@ -1040,7 +976,6 @@ function getSetIndex(gltfSemantic) {
   if (setIndexMatch !== null) {
     return parseInt(setIndexMatch[1]);
   }
-  return undefined;
 }
 
 const scratchSemanticInfo = {
@@ -1174,16 +1109,19 @@ function loadAttribute(
     return attribute;
   }
 
-  const vertexBufferLoader = getVertexBufferLoader(
-    loader,
-    gltf,
-    accessorId,
-    gltfSemantic,
-    draco,
-    loadBuffer,
-    loadTypedArray,
-    frameState
-  );
+  const vertexBufferLoader = ResourceCache.getVertexBufferLoader({
+    gltf: gltf,
+    gltfResource: loader._gltfResource,
+    baseResource: loader._baseResource,
+    frameState: frameState,
+    bufferViewId: gltf.accessors[accessorId].bufferView,
+    draco: draco,
+    attributeSemantic: gltfSemantic,
+    accessorId: accessorId,
+    asynchronous: loader._asynchronous,
+    loadBuffer: loadBuffer,
+    loadTypedArray: loadTypedArray,
+  });
 
   const index = loader._geometryLoaders.length;
   loader._geometryLoaders.push(vertexBufferLoader);
@@ -1388,15 +1326,17 @@ function loadIndices(
   const loadBuffer = needsPostProcessing ? false : outputBuffer;
   const loadTypedArray = needsPostProcessing ? true : outputTypedArray;
 
-  const indexBufferLoader = getIndexBufferLoader(
-    loader,
-    gltf,
-    accessorId,
-    draco,
-    loadBuffer,
-    loadTypedArray,
-    frameState
-  );
+  const indexBufferLoader = ResourceCache.getIndexBufferLoader({
+    gltf: gltf,
+    accessorId: accessorId,
+    gltfResource: loader._gltfResource,
+    baseResource: loader._baseResource,
+    frameState: frameState,
+    draco: draco,
+    asynchronous: loader._asynchronous,
+    loadBuffer: loadBuffer,
+    loadTypedArray: loadTypedArray,
+  });
 
   const index = loader._geometryLoaders.length;
   loader._geometryLoaders.push(indexBufferLoader);
@@ -1753,31 +1693,32 @@ function loadMorphTarget(
   const hasInstances = false;
 
   for (const semantic in target) {
-    if (target.hasOwnProperty(semantic)) {
-      const accessorId = target[semantic];
-
-      const semanticInfo = getSemanticInfo(
-        loader,
-        VertexAttributeSemantic,
-        semantic
-      );
-
-      const attributePlan = loadVertexAttribute(
-        loader,
-        gltf,
-        accessorId,
-        semanticInfo,
-        draco,
-        hasInstances,
-        needsPostProcessing,
-        frameState
-      );
-      morphTarget.attributes.push(attributePlan.attribute);
-
-      // The load plan doesn't need to distinguish morph target attributes from
-      // regular attributes
-      primitiveLoadPlan.attributePlans.push(attributePlan);
+    if (!target.hasOwnProperty(semantic)) {
+      continue;
     }
+    const accessorId = target[semantic];
+
+    const semanticInfo = getSemanticInfo(
+      loader,
+      VertexAttributeSemantic,
+      semantic
+    );
+
+    const attributePlan = loadVertexAttribute(
+      loader,
+      gltf,
+      accessorId,
+      semanticInfo,
+      draco,
+      hasInstances,
+      needsPostProcessing,
+      frameState
+    );
+    morphTarget.attributes.push(attributePlan.attribute);
+
+    // The load plan doesn't need to distinguish morph target attributes from
+    // regular attributes
+    primitiveLoadPlan.attributePlans.push(attributePlan);
   }
 
   return morphTarget;
@@ -1831,40 +1772,38 @@ function loadPrimitive(
   const attributes = gltfPrimitive.attributes;
   if (defined(attributes)) {
     for (const semantic in attributes) {
-      if (attributes.hasOwnProperty(semantic)) {
-        const accessorId = attributes[semantic];
-        const semanticInfo = getSemanticInfo(
-          loader,
-          VertexAttributeSemantic,
-          semantic
-        );
-
-        const modelSemantic = semanticInfo.modelSemantic;
-        if (
-          loadForClassification &&
-          !isClassificationAttribute(modelSemantic)
-        ) {
-          continue;
-        }
-
-        if (modelSemantic === VertexAttributeSemantic.FEATURE_ID) {
-          hasFeatureIds = true;
-        }
-
-        const attributePlan = loadVertexAttribute(
-          loader,
-          gltf,
-          accessorId,
-          semanticInfo,
-          draco,
-          hasInstances,
-          needsPostProcessing,
-          frameState
-        );
-
-        primitivePlan.attributePlans.push(attributePlan);
-        primitive.attributes.push(attributePlan.attribute);
+      if (!attributes.hasOwnProperty(semantic)) {
+        continue;
       }
+      const accessorId = attributes[semantic];
+      const semanticInfo = getSemanticInfo(
+        loader,
+        VertexAttributeSemantic,
+        semantic
+      );
+
+      const modelSemantic = semanticInfo.modelSemantic;
+      if (loadForClassification && !isClassificationAttribute(modelSemantic)) {
+        continue;
+      }
+
+      if (modelSemantic === VertexAttributeSemantic.FEATURE_ID) {
+        hasFeatureIds = true;
+      }
+
+      const attributePlan = loadVertexAttribute(
+        loader,
+        gltf,
+        accessorId,
+        semanticInfo,
+        draco,
+        hasInstances,
+        needsPostProcessing,
+        frameState
+      );
+
+      primitivePlan.attributePlans.push(attributePlan);
+      primitive.attributes.push(attributePlan.attribute);
     }
   }
 
@@ -2121,19 +2060,20 @@ function loadInstances(loader, gltf, nodeExtensions, frameState) {
   const attributes = instancingExtension.attributes;
   if (defined(attributes)) {
     for (const semantic in attributes) {
-      if (attributes.hasOwnProperty(semantic)) {
-        const accessorId = attributes[semantic];
-        instances.attributes.push(
-          loadInstancedAttribute(
-            loader,
-            gltf,
-            accessorId,
-            attributes,
-            semantic,
-            frameState
-          )
-        );
+      if (!attributes.hasOwnProperty(semantic)) {
+        continue;
       }
+      const accessorId = attributes[semantic];
+      instances.attributes.push(
+        loadInstancedAttribute(
+          loader,
+          gltf,
+          accessorId,
+          attributes,
+          semantic,
+          frameState
+        )
+      );
     }
   }
 
@@ -2290,12 +2230,9 @@ function loadNodes(loader, gltf, supportedImageFormats, frameState) {
     return [];
   }
 
-  let i;
-  let j;
-
   const nodesLength = gltf.nodes.length;
   const nodes = new Array(nodesLength);
-  for (i = 0; i < nodesLength; ++i) {
+  for (let i = 0; i < nodesLength; ++i) {
     const node = loadNode(
       loader,
       gltf,
@@ -2307,11 +2244,10 @@ function loadNodes(loader, gltf, supportedImageFormats, frameState) {
     nodes[i] = node;
   }
 
-  for (i = 0; i < nodesLength; ++i) {
+  for (let i = 0; i < nodesLength; ++i) {
     const childrenNodeIds = gltf.nodes[i].children;
     if (defined(childrenNodeIds)) {
-      const childrenLength = childrenNodeIds.length;
-      for (j = 0; j < childrenLength; ++j) {
+      for (let j = 0; j < childrenNodeIds.length; ++j) {
         nodes[i].children.push(nodes[childrenNodeIds[j]]);
       }
     }
@@ -2323,13 +2259,7 @@ function loadNodes(loader, gltf, supportedImageFormats, frameState) {
 function loadSkin(loader, gltf, gltfSkin, nodes) {
   const skin = new Skin();
 
-  const jointIds = gltfSkin.joints;
-  const jointsLength = jointIds.length;
-  const joints = new Array(jointsLength);
-  for (let i = 0; i < jointsLength; ++i) {
-    joints[i] = nodes[jointIds[i]];
-  }
-  skin.joints = joints;
+  skin.joints = gltfSkin.joints.map((jointId) => nodes[jointId]);
 
   const inverseBindMatricesAccessorId = gltfSkin.inverseBindMatrices;
   if (defined(inverseBindMatricesAccessorId)) {
@@ -2339,6 +2269,7 @@ function loadSkin(loader, gltf, gltfSkin, nodes) {
       inverseBindMatricesAccessorId
     );
   } else {
+    const jointsLength = gltfSkin.joints.length;
     skin.inverseBindMatrices = new Array(jointsLength).fill(Matrix4.IDENTITY);
   }
 
@@ -2441,8 +2372,6 @@ function loadAnimationChannel(gltfChannel, samplers, nodes) {
 }
 
 function loadAnimation(loader, gltf, gltfAnimation, nodes) {
-  let i;
-
   const animation = new Animation();
   animation.name = gltfAnimation.name;
 
@@ -2450,19 +2379,15 @@ function loadAnimation(loader, gltf, gltfAnimation, nodes) {
   const samplersLength = gltfSamplers.length;
 
   const samplers = new Array(samplersLength);
-  for (i = 0; i < samplersLength; i++) {
+  for (let i = 0; i < samplersLength; i++) {
     const sampler = loadAnimationSampler(loader, gltf, gltfSamplers[i]);
     sampler.index = i;
     samplers[i] = sampler;
   }
 
-  const gltfChannels = gltfAnimation.channels;
-  const channelsLength = gltfChannels.length;
-
-  const channels = new Array(channelsLength);
-  for (i = 0; i < channelsLength; i++) {
-    channels[i] = loadAnimationChannel(gltfChannels[i], samplers, nodes);
-  }
+  const channels = gltfAnimation.channels.map((gltfChannel) =>
+    loadAnimationChannel(gltfChannel, samplers, nodes)
+  );
 
   animation.samplers = samplers;
   animation.channels = channels;
@@ -2506,17 +2431,7 @@ function loadArticulationStage(gltfStage) {
 function loadArticulation(gltfArticulation) {
   const articulation = new Articulation();
   articulation.name = gltfArticulation.name;
-
-  const gltfStages = gltfArticulation.stages;
-  const gltfStagesLength = gltfStages.length;
-
-  const stages = new Array(gltfStagesLength);
-  for (let i = 0; i < gltfStagesLength; i++) {
-    const stage = loadArticulationStage(gltfStages[i]);
-    stages[i] = stage;
-  }
-
-  articulation.stages = stages;
+  articulation.stages = gltfArticulation.stages.map(loadArticulationStage);
 
   return articulation;
 }
@@ -2534,14 +2449,7 @@ function loadArticulations(gltf) {
     return [];
   }
 
-  const gltfArticulationsLength = gltfArticulations.length;
-  const articulations = new Array(gltfArticulationsLength);
-  for (let i = 0; i < gltfArticulationsLength; i++) {
-    const articulation = loadArticulation(gltfArticulations[i]);
-    articulations[i] = articulation;
-  }
-
-  return articulations;
+  return gltfArticulations.map(loadArticulation);
 }
 
 function getSceneNodeIds(gltf) {
@@ -2659,8 +2567,7 @@ function parse(loader, gltf, supportedImageFormats, frameState) {
 
 function unloadTextures(loader) {
   const textureLoaders = loader._textureLoaders;
-  const textureLoadersLength = textureLoaders.length;
-  for (let i = 0; i < textureLoadersLength; ++i) {
+  for (let i = 0; i < textureLoaders.length; ++i) {
     textureLoaders[i] =
       !textureLoaders[i].isDestroyed() &&
       ResourceCache.unload(textureLoaders[i]);
@@ -2670,8 +2577,7 @@ function unloadTextures(loader) {
 
 function unloadBufferViewLoaders(loader) {
   const bufferViewLoaders = loader._bufferViewLoaders;
-  const bufferViewLoadersLength = bufferViewLoaders.length;
-  for (let i = 0; i < bufferViewLoadersLength; ++i) {
+  for (let i = 0; i < bufferViewLoaders.length; ++i) {
     bufferViewLoaders[i] =
       !bufferViewLoaders[i].isDestroyed() &&
       ResourceCache.unload(bufferViewLoaders[i]);
@@ -2681,8 +2587,7 @@ function unloadBufferViewLoaders(loader) {
 
 function unloadGeometry(loader) {
   const geometryLoaders = loader._geometryLoaders;
-  const geometryLoadersLength = geometryLoaders.length;
-  for (let i = 0; i < geometryLoadersLength; ++i) {
+  for (let i = 0; i < geometryLoaders.length; ++i) {
     geometryLoaders[i] =
       !geometryLoaders[i].isDestroyed() &&
       ResourceCache.unload(geometryLoaders[i]);
@@ -2692,8 +2597,7 @@ function unloadGeometry(loader) {
 
 function unloadGeneratedAttributes(loader) {
   const buffers = loader._postProcessBuffers;
-  const length = buffers.length;
-  for (let i = 0; i < length; i++) {
+  for (let i = 0; i < buffers.length; i++) {
     const buffer = buffers[i];
     if (!buffer.isDestroyed()) {
       buffer.destroy();
