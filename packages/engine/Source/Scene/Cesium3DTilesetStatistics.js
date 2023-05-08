@@ -45,45 +45,15 @@ Cesium3DTilesetStatistics.prototype.clear = function () {
   this.numberOfTilesCulledWithChildrenUnion = 0;
 };
 
-function updatePointAndFeatureCounts(statistics, content, decrement, load) {
-  const contents = content.innerContents;
-  const pointsLength = content.pointsLength;
-  const trianglesLength = content.trianglesLength;
-  const featuresLength = content.featuresLength;
-  const geometryByteLength = content.geometryByteLength;
-  const texturesByteLength = content.texturesByteLength;
-  const batchTableByteLength = content.batchTableByteLength;
+function incrementSelectionCounts(statistics, content) {
+  statistics.numberOfFeaturesSelected += content.featuresLength;
+  statistics.numberOfPointsSelected += content.pointsLength;
+  statistics.numberOfTrianglesSelected += content.trianglesLength;
 
-  if (load) {
-    statistics.numberOfFeaturesLoaded += decrement
-      ? -featuresLength
-      : featuresLength;
-    statistics.numberOfPointsLoaded += decrement ? -pointsLength : pointsLength;
-    statistics.geometryByteLength += decrement
-      ? -geometryByteLength
-      : geometryByteLength;
-    statistics.texturesByteLength += decrement
-      ? -texturesByteLength
-      : texturesByteLength;
-    statistics.batchTableByteLength += decrement
-      ? -batchTableByteLength
-      : batchTableByteLength;
-  } else {
-    statistics.numberOfFeaturesSelected += decrement
-      ? -featuresLength
-      : featuresLength;
-    statistics.numberOfPointsSelected += decrement
-      ? -pointsLength
-      : pointsLength;
-    statistics.numberOfTrianglesSelected += decrement
-      ? -trianglesLength
-      : trianglesLength;
-  }
-
-  if (defined(contents)) {
-    const length = contents.length;
-    for (let i = 0; i < length; ++i) {
-      updatePointAndFeatureCounts(statistics, contents[i], decrement, load);
+  const { innerContents } = content;
+  if (defined(innerContents)) {
+    for (let i = 0; i < innerContents.length; ++i) {
+      incrementSelectionCounts(statistics, innerContents[i]);
     }
   }
 }
@@ -91,15 +61,45 @@ function updatePointAndFeatureCounts(statistics, content, decrement, load) {
 Cesium3DTilesetStatistics.prototype.incrementSelectionCounts = function (
   content
 ) {
-  updatePointAndFeatureCounts(this, content, false, false);
+  incrementSelectionCounts(this, content);
 };
+
+function incrementLoadCounts(statistics, content) {
+  statistics.numberOfFeaturesLoaded += content.featuresLength;
+  statistics.numberOfPointsLoaded += content.pointsLength;
+  statistics.geometryByteLength += content.geometryByteLength;
+  statistics.texturesByteLength += content.texturesByteLength;
+  statistics.batchTableByteLength += content.batchTableByteLength;
+
+  const { innerContents } = content;
+  if (defined(innerContents)) {
+    for (let i = 0; i < innerContents.length; ++i) {
+      incrementLoadCounts(statistics, innerContents[i]);
+    }
+  }
+}
 
 Cesium3DTilesetStatistics.prototype.incrementLoadCounts = function (content) {
-  updatePointAndFeatureCounts(this, content, false, true);
+  incrementLoadCounts(this, content);
 };
 
+function decrementLoadCounts(statistics, content) {
+  statistics.numberOfFeaturesLoaded -= content.featuresLength;
+  statistics.numberOfPointsLoaded -= content.pointsLength;
+  statistics.geometryByteLength -= content.geometryByteLength;
+  statistics.texturesByteLength -= content.texturesByteLength;
+  statistics.batchTableByteLength -= content.batchTableByteLength;
+
+  const { innerContents } = content;
+  if (defined(innerContents)) {
+    for (let i = 0; i < innerContents.length; ++i) {
+      decrementLoadCounts(statistics, innerContents[i]);
+    }
+  }
+}
+
 Cesium3DTilesetStatistics.prototype.decrementLoadCounts = function (content) {
-  updatePointAndFeatureCounts(this, content, true, true);
+  decrementLoadCounts(this, content);
 };
 
 Cesium3DTilesetStatistics.clone = function (statistics, result) {
@@ -126,4 +126,5 @@ Cesium3DTilesetStatistics.clone = function (statistics, result) {
   result.texturesByteLength = statistics.texturesByteLength;
   result.batchTableByteLength = statistics.batchTableByteLength;
 };
+
 export default Cesium3DTilesetStatistics;
