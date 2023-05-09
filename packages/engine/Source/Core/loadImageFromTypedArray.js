@@ -4,12 +4,19 @@ import defined from "./defined.js";
 import Resource from "./Resource.js";
 
 /**
+ * Construct an ImageBitmap from a Uint8Array
  * @private
+ *
+ * @param {object} options An object with the following properties
+ * @param {Uint8Array} options.uint8Array A TypedArray containing data for the image pixels
+ * @param {string} options.format The MIME type of the data
+ * @param {Request} [options.request]
+ * @param {boolean} [options.flipY=false]
+ * @param {boolean} [options.skipColorSpaceConversion=false]
+ * @returns {Promise<ImageBitmap>}
  */
 function loadImageFromTypedArray(options) {
-  const uint8Array = options.uint8Array;
-  const format = options.format;
-  const request = options.request;
+  const { uint8Array, format, request } = options;
   const flipY = defaultValue(options.flipY, false);
   const skipColorSpaceConversion = defaultValue(
     options.skipColorSpaceConversion,
@@ -61,4 +68,5 @@ function loadImageFromTypedArray(options) {
       return Promise.reject(error);
     });
 }
+
 export default loadImageFromTypedArray;

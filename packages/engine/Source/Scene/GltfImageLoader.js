@@ -29,12 +29,7 @@ import ResourceLoaderState from "./ResourceLoaderState.js";
  */
 function GltfImageLoader(options) {
   options = defaultValue(options, defaultValue.EMPTY_OBJECT);
-  const resourceCache = options.resourceCache;
-  const gltf = options.gltf;
-  const imageId = options.imageId;
-  const gltfResource = options.gltfResource;
-  const baseResource = options.baseResource;
-  const cacheKey = options.cacheKey;
+  const { resourceCache, gltf, imageId, gltfResource, baseResource } = options;
 
   //>>includeStart('debug', pragmas.debug);
   Check.typeOf.func("options.resourceCache", resourceCache);
@@ -45,16 +40,14 @@ function GltfImageLoader(options) {
   //>>includeEnd('debug');
 
   const image = gltf.images[imageId];
-  const bufferViewId = image.bufferView;
-  const uri = image.uri;
 
   this._resourceCache = resourceCache;
   this._gltfResource = gltfResource;
   this._baseResource = baseResource;
   this._gltf = gltf;
-  this._bufferViewId = bufferViewId;
-  this._uri = uri;
-  this._cacheKey = cacheKey;
+  this._bufferViewId = image.bufferView;
+  this._uri = image.uri;
+  this._cacheKey = options.cacheKey;
   this._bufferViewLoader = undefined;
   this._image = undefined;
   this._mipLevels = undefined;
@@ -193,10 +186,8 @@ async function loadFromBufferView(imageLoader) {
 async function loadFromUri(imageLoader) {
   imageLoader._state = ResourceLoaderState.LOADING;
   const baseResource = imageLoader._baseResource;
-  const uri = imageLoader._uri;
-  const resource = baseResource.getDerivedResource({
-    url: uri,
-  });
+  const url = imageLoader._uri;
+  const resource = baseResource.getDerivedResource({ url });
 
   try {
     const image = await loadImageFromUri(resource);
@@ -218,7 +209,7 @@ async function loadFromUri(imageLoader) {
     if (imageLoader.isDestroyed()) {
       return;
     }
-    return handleError(imageLoader, error, `Failed to load image: ${uri}`);
+    return handleError(imageLoader, error, `Failed to load image: ${url}`);
   }
 }
 
