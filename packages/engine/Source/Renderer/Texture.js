@@ -24,11 +24,250 @@ function Texture(options) {
   Check.defined("options.context", options.context);
   //>>includeEnd('debug');
 
-  const context = options.context;
-  let width = options.width;
-  let height = options.height;
-  const source = options.source;
+  const { context, width, height, source } = options;
+  const dimensions = getTextureDimensions(width, height, source);
 
+  const pixelFormat = defaultValue(options.pixelFormat, PixelFormat.RGBA);
+  const pixelDatatype = defaultValue(
+    options.pixelDatatype,
+    PixelDatatype.UNSIGNED_BYTE
+  );
+
+  const internalFormat = PixelFormat.toInternalFormat(
+    pixelFormat,
+    pixelDatatype,
+    context
+  );
+  const isCompressed = PixelFormat.isCompressedFormat(internalFormat);
+
+  //>>includeStart('debug', pragmas.debug);
+  validatePixelFormat(pixelFormat, source, context);
+  validateDatatype(pixelDatatype, pixelFormat, isCompressed, context);
+
+  if (isCompressed) {
+    checkCompressionSupport(internalFormat, context);
+    checkCompressedSource(source, internalFormat, dimensions);
+  }
+  //>>includeEnd('debug');
+
+  let sizeInBytes;
+  if (isCompressed) {
+    sizeInBytes = PixelFormat.compressedTextureSizeInBytes(
+      pixelFormat,
+      dimensions.x,
+      dimensions.y
+    );
+  } else {
+    sizeInBytes = PixelFormat.textureSizeInBytes(
+      pixelFormat,
+      pixelDatatype,
+      dimensions.x,
+      dimensions.y
+    );
+  }
+
+  // Use premultiplied alpha for opaque textures should perform better on Chrome:
+  // http://media.tojicode.com/webglCamp4/#20
+  const preMultiplyAlpha =
+    options.preMultiplyAlpha ||
+    pixelFormat === PixelFormat.RGB ||
+    pixelFormat === PixelFormat.LUMINANCE;
+  const flipY = defaultValue(options.flipY, true);
+  const skipColorSpaceConversion = defaultValue(
+    options.skipColorSpaceConversion,
+    false
+  );
+
+  const gl = context._gl;
+  const textureTarget = gl.TEXTURE_2D;
+  const texture = gl.createTexture();
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(textureTarget, texture);
+
+  let unpackAlignment = 4;
+  if (defined(source) && defined(source.arrayBufferView) && !isCompressed) {
+    unpackAlignment = PixelFormat.alignmentInBytes(
+      pixelFormat,
+      pixelDatatype,
+      dimensions.x
+    );
+  }
+
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, unpackAlignment);
+
+  if (skipColorSpaceConversion) {
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+  } else {
+    gl.pixelStorei(
+      gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
+      gl.BROWSER_DEFAULT_WEBGL
+    );
+  }
+
+  let initialized = true;
+  if (defined(source)) {
+    if (defined(source.arrayBufferView)) {
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+
+      // Source: typed array
+      let arrayBufferView = source.arrayBufferView;
+      if (isCompressed) {
+        gl.compressedTexImage2D(
+          textureTarget,
+          0,
+          internalFormat,
+          dimensions.x,
+          dimensions.y,
+          0,
+          arrayBufferView
+        );
+        if (defined(source.mipLevels)) {
+          let mipWidth = dimensions.x;
+          let mipHeight = dimensions.y;
+          for (let i = 0; i < source.mipLevels.length; ++i) {
+            mipWidth = getNextMipSize(mipWidth);
+            mipHeight = getNextMipSize(mipHeight);
+            gl.compressedTexImage2D(
+              textureTarget,
+              i + 1,
+              internalFormat,
+              mipWidth,
+              mipHeight,
+              0,
+              source.mipLevels[i]
+            );
+          }
+        }
+      } else {
+        if (flipY) {
+          arrayBufferView = PixelFormat.flipY(
+            arrayBufferView,
+            pixelFormat,
+            pixelDatatype,
+            dimensions.x,
+            dimensions.y
+          );
+        }
+        gl.texImage2D(
+          textureTarget,
+          0,
+          internalFormat,
+          dimensions.x,
+          dimensions.y,
+          0,
+          pixelFormat,
+          PixelDatatype.toWebGLConstant(pixelDatatype, context),
+          arrayBufferView
+        );
+
+        if (defined(source.mipLevels)) {
+          let mipWidth = dimensions.x;
+          let mipHeight = dimensions.y;
+          for (let i = 0; i < source.mipLevels.length; ++i) {
+            mipWidth = getNextMipSize(mipWidth);
+            mipHeight = getNextMipSize(mipHeight);
+            gl.texImage2D(
+              textureTarget,
+              i + 1,
+              internalFormat,
+              mipWidth,
+              mipHeight,
+              0,
+              pixelFormat,
+              PixelDatatype.toWebGLConstant(pixelDatatype, context),
+              source.mipLevels[i]
+            );
+          }
+        }
+      }
+    } else if (defined(source.framebuffer)) {
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+
+      // Source: framebuffer
+      if (source.framebuffer !== context.defaultFramebuffer) {
+        source.framebuffer._bind();
+      }
+
+      gl.copyTexImage2D(
+        textureTarget,
+        0,
+        internalFormat,
+        source.xOffset,
+        source.yOffset,
+        dimensions.x,
+        dimensions.y,
+        0
+      );
+
+      if (source.framebuffer !== context.defaultFramebuffer) {
+        source.framebuffer._unBind();
+      }
+    } else {
+      // Only valid for DOM-Element uploads
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, preMultiplyAlpha);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flipY);
+
+      // Source: ImageData, HTMLImageElement, HTMLCanvasElement, or HTMLVideoElement
+      gl.texImage2D(
+        textureTarget,
+        0,
+        internalFormat,
+        pixelFormat,
+        PixelDatatype.toWebGLConstant(pixelDatatype, context),
+        source
+      );
+    }
+  } else {
+    gl.texImage2D(
+      textureTarget,
+      0,
+      internalFormat,
+      dimensions.x,
+      dimensions.y,
+      0,
+      pixelFormat,
+      PixelDatatype.toWebGLConstant(pixelDatatype, context),
+      null
+    );
+    initialized = false;
+  }
+  gl.bindTexture(textureTarget, null);
+
+  this._id = createGuid();
+  this._context = context;
+  this._textureFilterAnisotropic = context._textureFilterAnisotropic;
+  this._textureTarget = textureTarget;
+  this._texture = texture;
+  this._internalFormat = internalFormat;
+  this._pixelFormat = pixelFormat;
+  this._pixelDatatype = pixelDatatype;
+  this._width = dimensions.x;
+  this._height = dimensions.y;
+  this._dimensions = dimensions;
+  this._hasMipmap = false;
+  this._sizeInBytes = sizeInBytes;
+  this._preMultiplyAlpha = preMultiplyAlpha;
+  this._flipY = flipY;
+  this._initialized = initialized;
+  this._sampler = undefined;
+
+  this.sampler = defined(options.sampler) ? options.sampler : new Sampler();
+}
+
+/**
+ * Get and validate the dimensions of a requested texture
+ *
+ * @param {number} width
+ * @param {number} height
+ * @param {*} source
+ * @returns {Cartesian2}
+ *
+ * @private
+ */
+function getTextureDimensions(width, height, source) {
   if (defined(source)) {
     if (!defined(width)) {
       width = defaultValue(source.videoWidth, source.width);
@@ -37,19 +276,6 @@ function Texture(options) {
       height = defaultValue(source.videoHeight, source.height);
     }
   }
-
-  const pixelFormat = defaultValue(options.pixelFormat, PixelFormat.RGBA);
-  const pixelDatatype = defaultValue(
-    options.pixelDatatype,
-    PixelDatatype.UNSIGNED_BYTE
-  );
-  const internalFormat = PixelFormat.toInternalFormat(
-    pixelFormat,
-    pixelDatatype,
-    context
-  );
-
-  const isCompressed = PixelFormat.isCompressedFormat(internalFormat);
 
   //>>includeStart('debug', pragmas.debug);
   if (!defined(width) || !defined(height)) {
@@ -73,11 +299,52 @@ function Texture(options) {
       `Height must be less than or equal to the maximum texture size (${ContextLimits.maximumTextureSize}).  Check maximumTextureSize.`
     );
   }
+  //>>includeEnd('debug');
 
+  return new Cartesian2(width, height);
+}
+
+/**
+ * Validate that a pixel format will work with a given source and context
+ *
+ * @param {PixelFormat} pixelFormat
+ * @param {*} source
+ * @param {Context} context
+ *
+ * @private
+ */
+function validatePixelFormat(pixelFormat, source, context) {
   if (!PixelFormat.validate(pixelFormat)) {
     throw new DeveloperError("Invalid options.pixelFormat.");
   }
 
+  if (PixelFormat.isDepthFormat(pixelFormat)) {
+    if (defined(source)) {
+      throw new DeveloperError(
+        "When options.pixelFormat is DEPTH_COMPONENT or DEPTH_STENCIL, source cannot be provided."
+      );
+    }
+
+    if (!context.depthTexture) {
+      throw new DeveloperError(
+        "When options.pixelFormat is DEPTH_COMPONENT or DEPTH_STENCIL, this WebGL implementation must support WEBGL_depth_texture.  Check context.depthTexture."
+      );
+    }
+  }
+}
+
+/**
+ * Check if a pixel datatype is valid for the current pixel format, and that
+ * it will work with the current context
+ *
+ * @param {PixelDatatype} pixelDatatype
+ * @param {PixelFormat} pixelFormat
+ * @param {boolean} isCompressed
+ * @param {Context} context
+ *
+ * @private
+ */
+function validateDatatype(pixelDatatype, pixelFormat, isCompressed, context) {
   if (!isCompressed && !PixelDatatype.validate(pixelDatatype)) {
     throw new DeveloperError("Invalid options.pixelDatatype.");
   }
@@ -115,287 +382,83 @@ function Texture(options) {
       "When options.pixelDatatype is HALF_FLOAT, this WebGL implementation must support the OES_texture_half_float extension. Check context.halfFloatingPointTexture."
     );
   }
+}
 
-  if (PixelFormat.isDepthFormat(pixelFormat)) {
-    if (defined(source)) {
-      throw new DeveloperError(
-        "When options.pixelFormat is DEPTH_COMPONENT or DEPTH_STENCIL, source cannot be provided."
-      );
-    }
-
-    if (!context.depthTexture) {
-      throw new DeveloperError(
-        "When options.pixelFormat is DEPTH_COMPONENT or DEPTH_STENCIL, this WebGL implementation must support WEBGL_depth_texture.  Check context.depthTexture."
-      );
-    }
+/**
+ * Check if a compressed format is supported by the current context
+ *
+ * @param {*} internalFormat
+ * @param {Context} context
+ *
+ * @private
+ */
+function checkCompressionSupport(internalFormat, context) {
+  if (PixelFormat.isDXTFormat(internalFormat) && !context.s3tc) {
+    throw new DeveloperError(
+      "When options.pixelFormat is S3TC compressed, this WebGL implementation must support the WEBGL_compressed_texture_s3tc extension. Check context.s3tc."
+    );
+  } else if (PixelFormat.isPVRTCFormat(internalFormat) && !context.pvrtc) {
+    throw new DeveloperError(
+      "When options.pixelFormat is PVRTC compressed, this WebGL implementation must support the WEBGL_compressed_texture_pvrtc extension. Check context.pvrtc."
+    );
+  } else if (PixelFormat.isASTCFormat(internalFormat) && !context.astc) {
+    throw new DeveloperError(
+      "When options.pixelFormat is ASTC compressed, this WebGL implementation must support the WEBGL_compressed_texture_astc extension. Check context.astc."
+    );
+  } else if (PixelFormat.isETC2Format(internalFormat) && !context.etc) {
+    throw new DeveloperError(
+      "When options.pixelFormat is ETC2 compressed, this WebGL implementation must support the WEBGL_compressed_texture_etc extension. Check context.etc."
+    );
+  } else if (PixelFormat.isETC1Format(internalFormat) && !context.etc1) {
+    throw new DeveloperError(
+      "When options.pixelFormat is ETC1 compressed, this WebGL implementation must support the WEBGL_compressed_texture_etc1 extension. Check context.etc1."
+    );
+  } else if (PixelFormat.isBC7Format(internalFormat) && !context.bc7) {
+    throw new DeveloperError(
+      "When options.pixelFormat is BC7 compressed, this WebGL implementation must support the EXT_texture_compression_bptc extension. Check context.bc7."
+    );
   }
+}
 
-  if (isCompressed) {
-    if (!defined(source) || !defined(source.arrayBufferView)) {
-      throw new DeveloperError(
-        "When options.pixelFormat is compressed, options.source.arrayBufferView must be defined."
-      );
-    }
-
-    if (PixelFormat.isDXTFormat(internalFormat) && !context.s3tc) {
-      throw new DeveloperError(
-        "When options.pixelFormat is S3TC compressed, this WebGL implementation must support the WEBGL_compressed_texture_s3tc extension. Check context.s3tc."
-      );
-    } else if (PixelFormat.isPVRTCFormat(internalFormat) && !context.pvrtc) {
-      throw new DeveloperError(
-        "When options.pixelFormat is PVRTC compressed, this WebGL implementation must support the WEBGL_compressed_texture_pvrtc extension. Check context.pvrtc."
-      );
-    } else if (PixelFormat.isASTCFormat(internalFormat) && !context.astc) {
-      throw new DeveloperError(
-        "When options.pixelFormat is ASTC compressed, this WebGL implementation must support the WEBGL_compressed_texture_astc extension. Check context.astc."
-      );
-    } else if (PixelFormat.isETC2Format(internalFormat) && !context.etc) {
-      throw new DeveloperError(
-        "When options.pixelFormat is ETC2 compressed, this WebGL implementation must support the WEBGL_compressed_texture_etc extension. Check context.etc."
-      );
-    } else if (PixelFormat.isETC1Format(internalFormat) && !context.etc1) {
-      throw new DeveloperError(
-        "When options.pixelFormat is ETC1 compressed, this WebGL implementation must support the WEBGL_compressed_texture_etc1 extension. Check context.etc1."
-      );
-    } else if (PixelFormat.isBC7Format(internalFormat) && !context.bc7) {
-      throw new DeveloperError(
-        "When options.pixelFormat is BC7 compressed, this WebGL implementation must support the EXT_texture_compression_bptc extension. Check context.bc7."
-      );
-    }
-
-    if (
-      PixelFormat.compressedTextureSizeInBytes(
-        internalFormat,
-        width,
-        height
-      ) !== source.arrayBufferView.byteLength
-    ) {
-      throw new DeveloperError(
-        "The byte length of the array buffer is invalid for the compressed texture with the given width and height."
-      );
-    }
-  }
-  //>>includeEnd('debug');
-
-  // Use premultiplied alpha for opaque textures should perform better on Chrome:
-  // http://media.tojicode.com/webglCamp4/#20
-  const preMultiplyAlpha =
-    options.preMultiplyAlpha ||
-    pixelFormat === PixelFormat.RGB ||
-    pixelFormat === PixelFormat.LUMINANCE;
-  const flipY = defaultValue(options.flipY, true);
-  const skipColorSpaceConversion = defaultValue(
-    options.skipColorSpaceConversion,
-    false
-  );
-
-  let initialized = true;
-
-  const gl = context._gl;
-  const textureTarget = gl.TEXTURE_2D;
-  const texture = gl.createTexture();
-
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(textureTarget, texture);
-
-  let unpackAlignment = 4;
-  if (defined(source) && defined(source.arrayBufferView) && !isCompressed) {
-    unpackAlignment = PixelFormat.alignmentInBytes(
-      pixelFormat,
-      pixelDatatype,
-      width
+/**
+ * Check if a compressed data source will work with a texture with the given dimensions
+ *
+ * @param {*} source A compressed data source
+ * @param {*} internalFormat
+ * @param {Cartesian2} dimensions The dimensions of the texture
+ *
+ * @private
+ */
+function checkCompressedSource(source, internalFormat, dimensions) {
+  if (!defined(source) || !defined(source.arrayBufferView)) {
+    throw new DeveloperError(
+      "When options.pixelFormat is compressed, options.source.arrayBufferView must be defined."
     );
   }
 
-  gl.pixelStorei(gl.UNPACK_ALIGNMENT, unpackAlignment);
-
-  if (skipColorSpaceConversion) {
-    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
-  } else {
-    gl.pixelStorei(
-      gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
-      gl.BROWSER_DEFAULT_WEBGL
-    );
-  }
-
-  if (defined(source)) {
-    if (defined(source.arrayBufferView)) {
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-
-      // Source: typed array
-      let arrayBufferView = source.arrayBufferView;
-      let i, mipWidth, mipHeight;
-      if (isCompressed) {
-        gl.compressedTexImage2D(
-          textureTarget,
-          0,
-          internalFormat,
-          width,
-          height,
-          0,
-          arrayBufferView
-        );
-        if (defined(source.mipLevels)) {
-          mipWidth = width;
-          mipHeight = height;
-          for (i = 0; i < source.mipLevels.length; ++i) {
-            mipWidth = Math.floor(mipWidth / 2) | 0;
-            if (mipWidth < 1) {
-              mipWidth = 1;
-            }
-            mipHeight = Math.floor(mipHeight / 2) | 0;
-            if (mipHeight < 1) {
-              mipHeight = 1;
-            }
-            gl.compressedTexImage2D(
-              textureTarget,
-              i + 1,
-              internalFormat,
-              mipWidth,
-              mipHeight,
-              0,
-              source.mipLevels[i]
-            );
-          }
-        }
-      } else {
-        if (flipY) {
-          arrayBufferView = PixelFormat.flipY(
-            arrayBufferView,
-            pixelFormat,
-            pixelDatatype,
-            width,
-            height
-          );
-        }
-        gl.texImage2D(
-          textureTarget,
-          0,
-          internalFormat,
-          width,
-          height,
-          0,
-          pixelFormat,
-          PixelDatatype.toWebGLConstant(pixelDatatype, context),
-          arrayBufferView
-        );
-
-        if (defined(source.mipLevels)) {
-          mipWidth = width;
-          mipHeight = height;
-          for (i = 0; i < source.mipLevels.length; ++i) {
-            mipWidth = Math.floor(mipWidth / 2) | 0;
-            if (mipWidth < 1) {
-              mipWidth = 1;
-            }
-            mipHeight = Math.floor(mipHeight / 2) | 0;
-            if (mipHeight < 1) {
-              mipHeight = 1;
-            }
-            gl.texImage2D(
-              textureTarget,
-              i + 1,
-              internalFormat,
-              mipWidth,
-              mipHeight,
-              0,
-              pixelFormat,
-              PixelDatatype.toWebGLConstant(pixelDatatype, context),
-              source.mipLevels[i]
-            );
-          }
-        }
-      }
-    } else if (defined(source.framebuffer)) {
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-
-      // Source: framebuffer
-      if (source.framebuffer !== context.defaultFramebuffer) {
-        source.framebuffer._bind();
-      }
-
-      gl.copyTexImage2D(
-        textureTarget,
-        0,
-        internalFormat,
-        source.xOffset,
-        source.yOffset,
-        width,
-        height,
-        0
-      );
-
-      if (source.framebuffer !== context.defaultFramebuffer) {
-        source.framebuffer._unBind();
-      }
-    } else {
-      // Only valid for DOM-Element uploads
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, preMultiplyAlpha);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flipY);
-
-      // Source: ImageData, HTMLImageElement, HTMLCanvasElement, or HTMLVideoElement
-      gl.texImage2D(
-        textureTarget,
-        0,
-        internalFormat,
-        pixelFormat,
-        PixelDatatype.toWebGLConstant(pixelDatatype, context),
-        source
-      );
-    }
-  } else {
-    gl.texImage2D(
-      textureTarget,
-      0,
+  if (
+    PixelFormat.compressedTextureSizeInBytes(
       internalFormat,
-      width,
-      height,
-      0,
-      pixelFormat,
-      PixelDatatype.toWebGLConstant(pixelDatatype, context),
-      null
-    );
-    initialized = false;
-  }
-  gl.bindTexture(textureTarget, null);
-
-  let sizeInBytes;
-  if (isCompressed) {
-    sizeInBytes = PixelFormat.compressedTextureSizeInBytes(
-      pixelFormat,
-      width,
-      height
-    );
-  } else {
-    sizeInBytes = PixelFormat.textureSizeInBytes(
-      pixelFormat,
-      pixelDatatype,
-      width,
-      height
+      dimensions.x,
+      dimensions.y
+    ) !== source.arrayBufferView.byteLength
+  ) {
+    throw new DeveloperError(
+      "The byte length of the array buffer is invalid for the compressed texture with the given width and height."
     );
   }
+}
 
-  this._id = createGuid();
-  this._context = context;
-  this._textureFilterAnisotropic = context._textureFilterAnisotropic;
-  this._textureTarget = textureTarget;
-  this._texture = texture;
-  this._internalFormat = internalFormat;
-  this._pixelFormat = pixelFormat;
-  this._pixelDatatype = pixelDatatype;
-  this._width = width;
-  this._height = height;
-  this._dimensions = new Cartesian2(width, height);
-  this._hasMipmap = false;
-  this._sizeInBytes = sizeInBytes;
-  this._preMultiplyAlpha = preMultiplyAlpha;
-  this._flipY = flipY;
-  this._initialized = initialized;
-  this._sampler = undefined;
-
-  this.sampler = defined(options.sampler) ? options.sampler : new Sampler();
+/**
+ * Get the size of the next mip level
+ * @param {number} size The size of the current mip level
+ * @returns {number} The size of the next mip level
+ *
+ * @private
+ */
+function getNextMipSize(size) {
+  const mipSize = Math.floor(size / 2) | 0;
+  return Math.max(mipSize, 1);
 }
 
 /**
