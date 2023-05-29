@@ -146,9 +146,7 @@ const defaultScale = new Cartesian2(1.0, 1.0);
  */
 GltfLoaderUtil.createModelTextureReader = function (options) {
   options = defaultValue(options, defaultValue.EMPTY_OBJECT);
-  const textureInfo = options.textureInfo;
-  const channels = options.channels;
-  const texture = options.texture;
+  const { textureInfo, channels, texture } = options;
 
   //>>includeStart('debug', pragmas.debug);
   Check.typeOf.object("options.textureInfo", textureInfo);

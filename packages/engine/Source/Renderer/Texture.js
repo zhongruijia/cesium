@@ -15,7 +15,32 @@ import TextureMagnificationFilter from "./TextureMagnificationFilter.js";
 import TextureMinificationFilter from "./TextureMinificationFilter.js";
 
 /**
+ * @typedef {object} Texture.ConstructorOptions
+ *
+ * Initialization options for the Texture constructor
+ *
  * @private
+ *
+ * @property {Context} context
+ * @property {number} [width]
+ * @property {number} [height]
+ * @property {*} [source]
+ * @property {PixelFormat} [pixelFormat=PixelFormat.RGBA]
+ * @property {PixelDatatype} [pixelDatatype=PixelDatatype.UNSIGNED_BYTE]
+ * @property {boolean} [preMultiplyAlpha]
+ * @property {boolean} [flipY=true]
+ * @property {boolean} [skipColorSpaceConversion=false]
+ * @property {Sampler} [sampler]
+ */
+
+/**
+ * @alias Texture
+ *
+ * @private
+ *
+ * @constructor
+ *
+ * @param {Texture.ConstructorOptions} options An object describing initialization options
  */
 function Texture(options) {
   options = defaultValue(options, defaultValue.EMPTY_OBJECT);
@@ -355,7 +380,7 @@ function validateDatatype(pixelDatatype, pixelFormat, isCompressed, context) {
     pixelDatatype !== PixelDatatype.UNSIGNED_INT
   ) {
     throw new DeveloperError(
-      "When options.pixelFormat is DEPTH_COMPONENT, options.pixelDatatype must be UNSIGNED_SHORT or UNSIGNED_INT."
+      "When pixelFormat is DEPTH_COMPONENT, pixelDatatype must be UNSIGNED_SHORT or UNSIGNED_INT."
     );
   }
 
@@ -364,13 +389,13 @@ function validateDatatype(pixelDatatype, pixelFormat, isCompressed, context) {
     pixelDatatype !== PixelDatatype.UNSIGNED_INT_24_8
   ) {
     throw new DeveloperError(
-      "When options.pixelFormat is DEPTH_STENCIL, options.pixelDatatype must be UNSIGNED_INT_24_8."
+      "When pixelFormat is DEPTH_STENCIL, pixelDatatype must be UNSIGNED_INT_24_8."
     );
   }
 
   if (pixelDatatype === PixelDatatype.FLOAT && !context.floatingPointTexture) {
     throw new DeveloperError(
-      "When options.pixelDatatype is FLOAT, this WebGL implementation must support the OES_texture_float extension.  Check context.floatingPointTexture."
+      "When pixelDatatype is FLOAT, this WebGL implementation must support the OES_texture_float extension.  Check context.floatingPointTexture."
     );
   }
 
@@ -379,7 +404,7 @@ function validateDatatype(pixelDatatype, pixelFormat, isCompressed, context) {
     !context.halfFloatingPointTexture
   ) {
     throw new DeveloperError(
-      "When options.pixelDatatype is HALF_FLOAT, this WebGL implementation must support the OES_texture_half_float extension. Check context.halfFloatingPointTexture."
+      "When pixelDatatype is HALF_FLOAT, this WebGL implementation must support the OES_texture_half_float extension. Check context.halfFloatingPointTexture."
     );
   }
 }
@@ -395,27 +420,27 @@ function validateDatatype(pixelDatatype, pixelFormat, isCompressed, context) {
 function checkCompressionSupport(internalFormat, context) {
   if (PixelFormat.isDXTFormat(internalFormat) && !context.s3tc) {
     throw new DeveloperError(
-      "When options.pixelFormat is S3TC compressed, this WebGL implementation must support the WEBGL_compressed_texture_s3tc extension. Check context.s3tc."
+      "When pixelFormat is S3TC compressed, this WebGL implementation must support the WEBGL_compressed_texture_s3tc extension. Check context.s3tc."
     );
   } else if (PixelFormat.isPVRTCFormat(internalFormat) && !context.pvrtc) {
     throw new DeveloperError(
-      "When options.pixelFormat is PVRTC compressed, this WebGL implementation must support the WEBGL_compressed_texture_pvrtc extension. Check context.pvrtc."
+      "When pixelFormat is PVRTC compressed, this WebGL implementation must support the WEBGL_compressed_texture_pvrtc extension. Check context.pvrtc."
     );
   } else if (PixelFormat.isASTCFormat(internalFormat) && !context.astc) {
     throw new DeveloperError(
-      "When options.pixelFormat is ASTC compressed, this WebGL implementation must support the WEBGL_compressed_texture_astc extension. Check context.astc."
+      "When pixelFormat is ASTC compressed, this WebGL implementation must support the WEBGL_compressed_texture_astc extension. Check context.astc."
     );
   } else if (PixelFormat.isETC2Format(internalFormat) && !context.etc) {
     throw new DeveloperError(
-      "When options.pixelFormat is ETC2 compressed, this WebGL implementation must support the WEBGL_compressed_texture_etc extension. Check context.etc."
+      "When pixelFormat is ETC2 compressed, this WebGL implementation must support the WEBGL_compressed_texture_etc extension. Check context.etc."
     );
   } else if (PixelFormat.isETC1Format(internalFormat) && !context.etc1) {
     throw new DeveloperError(
-      "When options.pixelFormat is ETC1 compressed, this WebGL implementation must support the WEBGL_compressed_texture_etc1 extension. Check context.etc1."
+      "When pixelFormat is ETC1 compressed, this WebGL implementation must support the WEBGL_compressed_texture_etc1 extension. Check context.etc1."
     );
   } else if (PixelFormat.isBC7Format(internalFormat) && !context.bc7) {
     throw new DeveloperError(
-      "When options.pixelFormat is BC7 compressed, this WebGL implementation must support the EXT_texture_compression_bptc extension. Check context.bc7."
+      "When pixelFormat is BC7 compressed, this WebGL implementation must support the EXT_texture_compression_bptc extension. Check context.bc7."
     );
   }
 }
